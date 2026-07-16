@@ -1,0 +1,12 @@
+{% if trophies %}
+<div class="text-sm">
+  <div class="mb-1" style="color: var(--accent);">{{ date_str }} — {{ trophies|length }} trophies</div>
+  <ul class="space-y-0.5" style="color: var(--fg-dim);">
+    {% for t in trophies %}
+    <li>{{ t.trophy_name }} <span style="color: var(--fg-dim);">({{ t.title_name }})</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<div class="text-sm" style="color: var(--fg-dim);">No trophies on {{ date_str }}.</div>
+{% endif %}

@@ -1,0 +1,8 @@
+services:
+  psnself:
+    build: .
+    ports:
+      - "8420:8420"
+    volumes:
+      - ~/.config/psnself:/root/.config/psnself
+    restart: unless-stopped

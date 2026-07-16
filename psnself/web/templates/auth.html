@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Auth · psnSELF{% endblock %}
+{% block content %}
+
+<div class="max-w-lg mx-auto mt-8">
+  <div class="term-card p-6">
+    <span class="term-card__title accent">AUTHENTICATION</span>
+
+    <div class="mt-4 text-sm space-y-4">
+      <div class="flex gap-3">
+        <span style="color: var(--accent);">1.</span>
+        <span style="color: var(--fg-dim);">Log into</span>
+        <a href="https://my.playstation.com" target="_blank" style="color: var(--primary);">my.playstation.com</a>
+        <span style="color: var(--fg-dim);">in your browser</span>
+      </div>
+      <div class="flex gap-3">
+        <span style="color: var(--accent);">2.</span>
+        <span style="color: var(--fg-dim);">Visit</span>
+        <span style="color: var(--primary);">ca.account.sony.com/api/v1/ssocookie</span>
+      </div>
+      <div class="flex gap-3">
+        <span style="color: var(--accent);">3.</span>
+        <span style="color: var(--fg-dim);">Copy the 64-character NPSSO code from the JSON</span>
+      </div>
+    </div>
+
+    <div class="mt-6">
+      <input
+        id="npsso-input"
+        name="npsso"
+        type="password"
+        placeholder="Paste NPSSO code here"
+        class="w-full text-xs px-3 py-2 bg-transparent border outline-none"
+        style="border-color: var(--secondary); color: var(--fg);">
+    </div>
+
+    <div class="flex gap-3 mt-4">
+      <button
+        id="auth-save"
+        class="text-xs px-4 py-1.5 border"
+        style="border-color: var(--accent); color: var(--accent);"
+        hx-post="/auth"
+        hx-include="#npsso-input"
+        hx-target="#auth-status"
+        hx-swap="innerHTML">
+        Validate &amp; Save
+      </button>
+    </div>
+
+    <div id="auth-status" class="mt-4 text-sm"></div>
+  </div>
+
+  <div class="term-card p-6 mt-6">
+    <span class="term-card__title accent">Auto Sync Schedule</span>
+    <div class="mt-4 text-sm space-y-3">
+      <div class="flex gap-4 items-center">
+        <span style="color: var(--fg-dim); min-width: 180px;">Trophy sync every</span>
+        <input
+          id="trophy-interval"
+          name="trophy_interval"
+          type="number"
+          min="0"
+          value="{{ trophy_interval }}"
+          class="text-xs px-2 py-1 bg-transparent border outline-none w-16 text-center"
+          style="border-color: var(--secondary); color: var(--fg);">
+        <span style="color: var(--fg-dim);">hours (0 = off)</span>
+        {% if next_trophy %}
+          <span class="text-xs" style="color: var(--accent);">Next: ~{{ next_trophy }}</span>
+        {% endif %}
+      </div>
+      <div class="flex gap-4 items-center">
+        <span style="color: var(--fg-dim); min-width: 180px;">Friends sync every</span>
+        <input
+          id="friends-interval"
+          name="friends_interval"
+          type="number"
+          min="0"
+          value="{{ friends_interval }}"
+          class="text-xs px-2 py-1 bg-transparent border outline-none w-16 text-center"
+          style="border-color: var(--secondary); color: var(--fg);">
+        <span style="color: var(--fg-dim);">hours (0 = off)</span>
+        {% if next_friends %}
+          <span class="text-xs" style="color: var(--accent);">Next: ~{{ next_friends }}</span>
+        {% endif %}
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button
+          class="text-xs px-4 py-1.5 border"
+          style="border-color: var(--accent); color: var(--accent);"
+          hx-post="/auth/schedule"
+          hx-include="#trophy-interval, #friends-interval"
+          hx-target="#schedule-status"
+          hx-swap="innerHTML">
+          Save Schedule
+        </button>
+      </div>
+      <div id="schedule-status" class="text-sm"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,32 @@
+<div class="flex items-center justify-between mb-3 text-sm">
+  <button hx-get="/partials/calendar/{{ prev_year }}/{{ prev_month }}" hx-target="#calendar-modal-content"
+          class="px-2" style="color: var(--accent);">&laquo; prev</button>
+  <span class="font-bold">{{ label }}</span>
+  <button hx-get="/partials/calendar/{{ next_year }}/{{ next_month }}" hx-target="#calendar-modal-content"
+          class="px-2" style="color: var(--accent);">next &raquo;</button>
+</div>
+
+<div class="grid grid-cols-7 gap-1 text-xs mb-2" style="color: var(--fg-dim);">
+  <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+</div>
+<div class="grid grid-cols-7 gap-1">
+  {% for cell in cells %}
+    {% if cell is none %}
+    <div class="aspect-square"></div>
+    {% else %}
+    <div class="aspect-square flex flex-col items-center justify-center text-xs cursor-pointer border"
+         style="border-color: var(--surface); {% if cell.seconds %}background: var(--surface);{% endif %}"
+         hx-get="/partials/playday/{{ cell.date }}"
+         hx-target="#calendar-day-detail"
+         hx-swap="innerHTML">
+      <span>{{ cell.day }}</span>
+      {% if cell.seconds %}
+      <span style="color: var(--accent); font-size: 0.65rem;">{{ cell.label }}</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+<div id="calendar-day-detail" class="mt-3 text-sm" style="color: var(--fg-dim);">
+  Click a day to see what you played.
+</div>

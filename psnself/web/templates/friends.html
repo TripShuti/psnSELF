@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Friends · psnSELF{% endblock %}
+{% block content %}
+
+<div class="term-card p-4">
+  <span class="term-card__title">Friends Leaderboard</span>
+  <div class="flex justify-between items-center mt-2 mb-3 text-xs" style="color: var(--fg-dim);">
+    <span>{{ fetched_at_label }}</span>
+    <button
+      class="text-xs px-2 py-0.5 border"
+      style="border-color: var(--secondary); color: var(--fg-dim);"
+      hx-post="/sync-friends"
+      hx-target="#friends-sync-msg"
+      hx-swap="innerHTML">
+      Refresh now
+    </button>
+  </div>
+  <div id="friends-sync-msg" class="text-xs mb-2"></div>
+  <table class="term-table w-full text-sm">
+    <thead>
+      <tr>
+        <th class="py-1">#</th>
+        <th class="py-1">Online ID</th>
+        <th class="py-1 text-right">Level</th>
+        <th class="py-1 text-right" style="color: var(--plat);">P</th>
+        <th class="py-1 text-right" style="color: var(--gold);">G</th>
+        <th class="py-1 text-right" style="color: var(--silver);">S</th>
+        <th class="py-1 text-right" style="color: var(--bronze);">B</th>
+        <th class="py-1 text-right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in friends %}
+      <tr>
+        <td class="py-1" style="color: var(--fg-dim);">{{ loop.index }}</td>
+        <td class="py-1">{{ f.online_id }}</td>
+        {% if f.is_private %}
+        <td colspan="6" class="py-1" style="color: var(--fg-dim);">🔒 private profile</td>
+        {% else %}
+        <td class="py-1 text-right">{{ f.trophy_level }}</td>
+        <td class="py-1 text-right">{{ f.platinum }}</td>
+        <td class="py-1 text-right">{{ f.gold }}</td>
+        <td class="py-1 text-right">{{ f.silver }}</td>
+        <td class="py-1 text-right">{{ f.bronze }}</td>
+        <td class="py-1 text-right font-bold">{{ f.total }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      {% if not friends %}
+      <tr><td colspan="8" class="py-4 text-center" style="color: var(--fg-dim);">
+        No leaderboard data yet. Refresh it from the TUI with the <b>l</b> key.
+      </td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

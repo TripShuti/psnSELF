@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · psnSELF{% endblock %}
+{% block content %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+  <!-- GAMES (own column, no row-span — that was causing the empty-gap bug) -->
+  <div class="flex flex-col gap-8">
+
+    <div class="term-card p-4">
+      <span class="term-card__title">Games ({{ games|length }})</span>
+
+      <div class="flex flex-wrap gap-2 items-center mt-3 mb-1">
+        <button
+          class="text-xs px-2 py-0.5 border whitespace-nowrap"
+          style="border-color: var(--secondary); color: var(--fg-dim);"
+          hx-post="/sync"
+          hx-target="#sync-msg"
+          hx-swap="innerHTML">
+          Sync
+        </button>
+        <button class="text-xs px-2 py-0.5 border whitespace-nowrap" id="filter-no-time"
+                style="border-color: var(--secondary); color: var(--fg-dim);"
+                onclick="toggleNoTimeFilter()">
+          ⚠ No time
+        </button>
+        <span id="filter-active" class="hidden" style="color: var(--accent);">(filtered)</span>
+        <span id="sync-msg" class="text-xs" style="color: var(--fg-dim);"></span>
+        <input
+          id="game-search"
+          type="text"
+          placeholder="Search games…"
+          class="ml-auto text-xs px-2 py-1 bg-transparent border outline-none"
+          style="border-color: var(--secondary); color: var(--fg);"
+          oninput="filterGames(this.value)">
+      </div>
+
+      <div class="max-h-[640px] overflow-y-auto">
+        <table class="term-table w-full text-sm">
+          <thead>
+            <tr>
+              <th class="py-1 px-2 sortable" data-sort="name" onclick="sortGames('name')"
+                  style="cursor: pointer;">Name</th>
+              <th class="py-1 px-2 text-center">Platform</th>
+              <th class="py-1 px-2 text-right">Progress</th>
+              <th class="py-1 px-2 text-right sortable" data-sort="playtime" onclick="sortGames('playtime')"
+                  style="cursor: pointer;">Play Time</th>
+              <th class="py-1 px-2 text-right sortable" data-sort="updated" onclick="sortGames('updated')"
+                  style="cursor: pointer;">Last Trophy</th>
+            </tr>
+          </thead>
+          <tbody id="games-tbody">
+            {% for g in games %}
+            <tr class="game-row"
+                data-name="{{ g.title_name|lower }}"
+                data-updated="{{ g.last_updated_datetime or '0000' }}"
+                data-play-seconds="{{ g.play_seconds }}">
+              <td class="py-1 px-2">
+                <a href="/game/{{ g.np_communication_id }}" class="hover:underline" style="color: var(--fg);">
+                  {{ g.title_name }}
+                </a>
+              </td>
+              <td class="py-1 px-2 text-center" style="color: var(--fg-dim);">{{ g.platform }}</td>
+              <td class="py-1 px-2 text-right">{{ g.progress }}%</td>
+              <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
+                {% if g.play_seconds > 0 %}
+                  {{ g.play_seconds // 3600 }}h
+                {% else %}
+                  <span style="color: var(--err);">—</span>
+                {% endif %}
+              </td>
+              <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
+                {{ g.last_updated_datetime|fmt_date if g.last_updated_datetime else '–' }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="term-card p-4">
+      <span class="term-card__title">Rarity Distribution</span>
+      <div class="mt-3 space-y-3 text-sm">
+        {% for r in rarity %}
+        <div>
+          <div class="flex justify-between mb-1">
+            <span>{{ r.label }}</span>
+            <span style="color: var(--fg-dim);">{{ r.count }} ({{ r.pct }}%)</span>
+          </div>
+          <div class="bar-track h-2 w-full">
+            <div class="bar-fill h-2" style="width: {{ r.bar_pct }}%;"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT COLUMN: everything else stacked together, as ONE grid cell,
+       so its total height never fights with the Games card's height -->
+  <div class="flex flex-col gap-8">
+
+    <div class="term-card p-4">
+      <span class="term-card__title accent">Recent Trophies</span>
+      <div class="overflow-x-auto">
+        <table class="term-table w-full text-sm mt-2">
+          <thead>
+            <tr>
+              <th class="py-1 px-2">Game</th>
+              <th class="py-1 px-2">Trophy</th>
+              <th class="py-1 px-2">Type</th>
+              <th class="py-1 px-2">Rarity</th>
+              <th class="py-1 px-2 text-right">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in recent %}
+            <tr>
+              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.title_name }}</td>
+              <td class="py-1 px-2">{{ t.trophy_name }}</td>
+              <td class="py-1 px-2" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type }}</td>
+              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.trophy_rarity or '–' }}</td>
+              <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
+                {{ t.earned_date_time|fmt_date if t.earned_date_time else '–' }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="term-card p-4">
+      <span class="term-card__title">Weekly Activity</span>
+      <div class="overflow-x-auto mt-3">
+        <table class="text-xs" style="border-collapse: separate; border-spacing: 3px;">
+          <thead>
+            <tr>
+              <th></th>
+              {% for w in heatmap.week_labels %}
+              <th class="font-normal text-center px-1" style="color: var(--fg-dim);">{{ w }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for day_name, cells in heatmap.rows %}
+            <tr>
+              <td class="pr-2" style="color: var(--fg-dim);">{{ day_name }}</td>
+              {% for cell in cells %}
+                {% if cell.count is none %}
+                  <td class="text-center" style="color: var(--fg-dim);">·</td>
+                {% elif cell.count == 0 %}
+                  <td class="text-center" style="color: var(--fg-dim);" title="{{ cell.date }}: no trophies">·</td>
+                {% else %}
+                  <td class="text-center cursor-pointer"
+                      hx-get="/partials/day/{{ cell.date }}"
+                      hx-target="#day-detail"
+                      hx-swap="innerHTML"
+                      title="{{ cell.date }}: {{ cell.count }} trophies">
+                    <span style="color: {{ cell.color }};">■</span>
+                  </td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div id="day-detail" class="mt-3 text-sm" style="color: var(--fg-dim);">
+        Click any day to see trophy details.
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+      <div class="term-card p-4">
+        <span class="term-card__title">{{ month_compare.cur_label }} vs {{ month_compare.prev_label }}</span>
+        <div class="mt-2 text-sm space-y-1">
+          <div>{{ month_compare.cur_label }}: <b>{{ month_compare.cur_count }}</b> trophies</div>
+          <div>{{ month_compare.prev_label }}: <b>{{ month_compare.prev_count }}</b> trophies</div>
+          <div style="color: {% if month_compare.change >= 0 %}var(--accent){% else %}var(--err){% endif %};">
+            Change: {{ month_compare.change }}% {{ '↑' if month_compare.change >= 0 else '↓' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="term-card p-4">
+        <span class="term-card__title accent">Play Time</span>
+        <div class="mt-2 text-sm space-y-1">
+          <div>Total: <b>{{ playtime.total }}</b></div>
+          <div>Today: <b>{{ playtime.today }}</b> &nbsp; Week: <b>{{ playtime.week }}</b> &nbsp; Month: <b>{{ playtime.month }}</b></div>
+          <button
+            class="mt-2 text-xs px-2 py-1 border"
+            style="border-color: var(--secondary); color: var(--fg-dim);"
+            hx-get="/partials/calendar/{{ today_year }}/{{ today_month }}"
+            hx-target="#calendar-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('calendar-modal').classList.remove('hidden')">
+            View calendar →
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CALENDAR MODAL -->
+<div id="calendar-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background: rgba(0,0,0,0.7);"
+     onclick="if(event.target===this) this.classList.add('hidden')">
+  <div class="term-card p-5 max-w-lg w-full" style="background: var(--bg);">
+    <span class="term-card__title accent">Play Time Calendar</span>
+    <div id="calendar-modal-content" class="mt-2"></div>
+    <button class="mt-4 text-xs px-2 py-1 border" style="border-color: var(--secondary); color: var(--fg-dim);"
+            onclick="document.getElementById('calendar-modal').classList.add('hidden')">
+      Close [Esc]
+    </button>
+  </div>
+</div>
+<script>
+let _noTimeFilter = false;
+let _sortBy = 'updated';
+let _sortAsc = false;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.getElementById('calendar-modal').classList.add('hidden');
+});
+
+function filterGames(q) {
+  q = q.trim().toLowerCase();
+  document.querySelectorAll('#games-tbody .game-row').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
+  if (_noTimeFilter) _applyNoTimeFilter();
+}
+
+function _applyNoTimeFilter() {
+  document.querySelectorAll('#games-tbody .game-row').forEach(row => {
+    if (row.style.display === 'none') return;
+    if (parseInt(row.dataset.playSeconds) === 0) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+function toggleNoTimeFilter() {
+  _noTimeFilter = !_noTimeFilter;
+  const btn = document.getElementById('filter-no-time');
+  const label = document.getElementById('filter-active');
+  if (_noTimeFilter) {
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.color = 'var(--accent)';
+    label.classList.remove('hidden');
+    _applyNoTimeFilter();
+  } else {
+    btn.style.borderColor = 'var(--secondary)';
+    btn.style.color = 'var(--fg-dim)';
+    label.classList.add('hidden');
+    filterGames(document.getElementById('game-search').value);
+  }
+}
+
+function _numVal(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function sortGames(by) {
+  const tbody = document.getElementById('games-tbody');
+  const rows = Array.from(tbody.querySelectorAll('.game-row'));
+  const asc = (by === _sortBy) ? !_sortAsc : (by === 'name');
+  _sortBy = by;
+  _sortAsc = asc;
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.style.color = '';
+    th.textContent = th.textContent.replace(/ [▲▼]$/, '');
+  });
+  const header = document.querySelector(`th.sortable[data-sort="${by}"]`);
+  if (header) {
+    header.style.color = 'var(--accent)';
+    header.textContent += asc ? ' ▲' : ' ▼';
+  }
+  rows.sort((a, b) => {
+    let va, vb;
+    if (by === 'name') {
+      va = a.dataset.name;
+      vb = b.dataset.name;
+      return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    if (by === 'playtime') {
+      va = _numVal(a.dataset.playSeconds);
+      vb = _numVal(b.dataset.playSeconds);
+    } else {
+      va = a.dataset.updated;
+      vb = b.dataset.updated;
+    }
+    return asc ? (va > vb ? 1 : va < vb ? -1 : 0) : (vb > va ? 1 : vb < va ? -1 : 0);
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+sortGames('updated');
+</script>
+
+{% endblock %}

@@ -1,0 +1,15 @@
+{% if details %}
+<div>
+  <div class="mb-1" style="color: var(--accent);">{{ date_str }}</div>
+  <ul class="space-y-0.5">
+    {% for d in details %}
+    <li class="flex justify-between">
+      <span>{{ d.title_name }}</span>
+      <span style="color: var(--fg-dim);">{{ d.label }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<div>No play time logged on {{ date_str }}.</div>
+{% endif %}

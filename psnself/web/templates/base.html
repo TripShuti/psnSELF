@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}psnSELF{% endblock %}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #1a1a1e;
+    --surface:   #282830;
+    --primary:   #5a8aaa;
+    --secondary: #4a6a80;
+    --accent:    #00c8a0;
+    --fg:        #d0d0d0;
+    --fg-dim:    #8a8a92;
+    --err:       #d05050;
+    --plat:      #b0b0e0;
+    --gold:      #d4af37;
+    --silver:    #c8c8ce;
+    --bronze:    #cd7f32;
+  }
+  * { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  body { background: var(--bg); color: var(--fg); }
+
+  /* --- signature: terminal "border-title" seam, recreating the TUI's
+     border_title look where the label sits cut into the top border --- */
+  .term-card {
+    position: relative;
+    border: 1px solid var(--primary);
+    background: var(--bg);
+  }
+  .term-card__title {
+    position: absolute;
+    top: -0.65em;
+    left: 1rem;
+    background: var(--bg);
+    color: var(--primary);
+    padding: 0 0.5rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .term-card__title.accent { color: var(--accent); }
+
+  .cursor {
+    display: inline-block;
+    width: 0.55em;
+    height: 1em;
+    background: var(--accent);
+    vertical-align: -0.15em;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--secondary); }
+
+  a.nav-link { color: var(--fg-dim); }
+  a.nav-link:hover, a.nav-link.active { color: var(--accent); }
+
+  .bar-track { background: var(--surface); }
+  .bar-fill { background: var(--accent); }
+
+  table.term-table th { color: var(--primary); text-align: left; font-weight: 700; border-bottom: 1px solid var(--secondary); }
+  table.term-table td { color: var(--fg); }
+  table.term-table tr:hover td { background: var(--surface); }
+
+  .htmx-indicator { opacity: 0; transition: opacity 150ms; }
+  .htmx-request .htmx-indicator { opacity: 1; }
+  .htmx-request.htmx-indicator { opacity: 1; }
+</style>
+{% block head %}{% endblock %}
+</head>
+<body class="min-h-screen">
+  <header class="border-b" style="border-color: var(--secondary);">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="/" class="text-lg font-extrabold tracking-wide" style="color: var(--fg);">
+        psn<span style="color: var(--accent);">SELF</span><span class="cursor"></span>
+      </a>
+      <nav class="flex gap-6 text-sm uppercase tracking-wide items-center">
+        <a href="/" class="nav-link {% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+        <a href="/friends" class="nav-link {% if active == 'friends' %}active{% endif %}">Friends</a>
+        <a href="/auth" class="nav-link {% if active == 'auth' %}active{% endif %}" style="color: var(--fg-dim);">
+          {% if authenticated %}
+            <span style="color: var(--accent);">✓</span> {{ online_id }}
+          {% else %}
+            Auth
+          {% endif %}
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+   <footer class="max-w-7xl mx-auto px-6 py-6 text-xs" style="color: var(--fg-dim);">
+    psnSELF web · self-hosted
+  </footer>
+</body>
+</html>
