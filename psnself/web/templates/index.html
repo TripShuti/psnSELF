@@ -19,12 +19,14 @@
           hx-swap="innerHTML">
           Sync
         </button>
+        {% if has_no_time_games %}
         <button class="text-xs px-2 py-0.5 border whitespace-nowrap" id="filter-no-time"
                 style="border-color: var(--secondary); color: var(--fg-dim);"
                 onclick="toggleNoTimeFilter()">
           ⚠ No time
         </button>
         <span id="filter-active" class="hidden" style="color: var(--accent);">(filtered)</span>
+        {% endif %}
         <span id="sync-msg" class="text-xs" style="color: var(--fg-dim);"></span>
         <input
           id="game-search"

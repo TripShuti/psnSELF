@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from psnself import auth, db, sync
@@ -21,6 +21,10 @@ SCHEDULE_PATH = auth.get_config_path().parent / "schedule.json"
 
 app = FastAPI(title="psnSELF")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+@app.get("/favicon.ico")
+def favicon():
+    return Response(status_code=204)
 
 TROPHY_COLOR_VAR = {
     "platinum": "plat", "gold": "gold", "silver": "silver", "bronze": "bronze",
@@ -280,11 +284,14 @@ def dashboard(request: Request):
             "bar_pct": max(round((c / max_r) * 100), 2) if c else 0,
         })
 
+    has_no_time = any(g["play_seconds"] == 0 for g in games)
+
     return templates.TemplateResponse(request, "index.html", {
         **_auth_context(), "active": "dashboard",
         "games": games, "recent": recent, "heatmap": heatmap,
         "month_compare": month_compare, "playtime": playtime, "rarity": rarity,
         "today_year": today.year, "today_month": today.month,
+        "has_no_time_games": has_no_time,
     })
 
 
