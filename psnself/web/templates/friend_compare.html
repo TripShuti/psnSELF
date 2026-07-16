@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ friend.online_id }} vs {{ online_id }} · psnSELF{% endblock %}
+{% block content %}
+
+<a href="/friends" class="text-sm nav-link">&laquo; back to friends</a>
+
+<div class="term-card p-4 mt-4">
+  <span class="term-card__title accent">Compare with {{ friend.online_id }}</span>
+  <div class="mt-2 text-sm flex gap-6 flex-wrap" style="color: var(--fg-dim);">
+    <span>{{ online_id }} · Level {{ myself.trophy_level if myself else '?' }} vs {{ friend.online_id }} · Level {{ friend.trophy_level }}</span>
+  </div>
+</div>
+
+<div class="term-card p-4 mt-4">
+  <span class="term-card__title">Game Comparison ({{ games|length }})</span>
+  <table class="term-table w-full text-sm mt-2">
+    <thead>
+      <tr>
+        <th class="py-1">Game</th>
+        <th class="py-1 text-center" colspan="5" style="color: var(--accent);">{{ online_id }}</th>
+        <th class="py-1 text-center" colspan="5" style="color: var(--fg-dim);">{{ friend.online_id }}</th>
+      </tr>
+      <tr>
+        <th></th>
+        <th class="py-1 text-right">Progress</th>
+        <th class="py-1 text-right" style="color: var(--plat);">P</th>
+        <th class="py-1 text-right" style="color: var(--gold);">G</th>
+        <th class="py-1 text-right" style="color: var(--silver);">S</th>
+        <th class="py-1 text-right" style="color: var(--bronze);">B</th>
+        <th class="py-1 text-right">Progress</th>
+        <th class="py-1 text-right" style="color: var(--plat);">P</th>
+        <th class="py-1 text-right" style="color: var(--gold);">G</th>
+        <th class="py-1 text-right" style="color: var(--silver);">S</th>
+        <th class="py-1 text-right" style="color: var(--bronze);">B</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in games %}
+      <tr>
+        <td class="py-1" style="color: var(--fg);">{{ g.title_name }}</td>
+        <td class="py-1 text-right">{{ g.my_progress }}%</td>
+        <td class="py-1 text-right" style="color: var(--plat);">{{ g.my_plat }}</td>
+        <td class="py-1 text-right" style="color: var(--gold);">{{ g.my_gold }}</td>
+        <td class="py-1 text-right" style="color: var(--silver);">{{ g.my_silver }}</td>
+        <td class="py-1 text-right" style="color: var(--bronze);">{{ g.my_bronze }}</td>
+        <td class="py-1 text-right">{{ g.friend_progress }}%</td>
+        <td class="py-1 text-right" style="color: var(--plat);">{{ g.friend_plat }}</td>
+        <td class="py-1 text-right" style="color: var(--gold);">{{ g.friend_gold }}</td>
+        <td class="py-1 text-right" style="color: var(--silver);">{{ g.friend_silver }}</td>
+        <td class="py-1 text-right" style="color: var(--bronze);">{{ g.friend_bronze }}</td>
+      </tr>
+      {% endfor %}
+      {% if not games %}
+      <tr><td colspan="11" class="py-4 text-center" style="color: var(--fg-dim);">
+        No shared games found.
+      </td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

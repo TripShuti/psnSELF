@@ -33,13 +33,12 @@ def is_authenticated() -> bool:
     return bool(config.get("npsso"))
 
 
-def validate_npsso(npsso: str) -> str | None:
+def validate_npsso(npsso: str) -> tuple[str, str] | None:
     from psnawp_api import PSNAWP
     try:
         psnawp = PSNAWP(npsso_cookie=npsso)
         client = psnawp.me()
-        online_id = client.online_id
-        return online_id
+        return client.online_id, client.account_id
     except Exception:
         return None
 

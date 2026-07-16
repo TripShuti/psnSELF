@@ -3,7 +3,10 @@
   <div class="mb-1" style="color: var(--accent);">{{ date_str }} — {{ trophies|length }} trophies</div>
   <ul class="space-y-0.5" style="color: var(--fg-dim);">
     {% for t in trophies %}
-    <li>{{ t.trophy_name }} <span style="color: var(--fg-dim);">({{ t.title_name }})</span></li>
+    <li>
+      <span style="color: var(--{{ t.trophy_type }}); font-weight: 700;">{{ t.trophy_type|capitalize }}</span>
+      {{ t.trophy_name }} <span style="color: var(--fg-dim);">({{ t.title_name }})</span>
+    </li>
     {% endfor %}
   </ul>
 </div>

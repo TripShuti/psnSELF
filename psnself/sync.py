@@ -390,6 +390,7 @@ def _do_fetch_friends(npsso: str, progress_callback=None) -> dict:
         if progress_callback:
             progress_callback(i + 1, total, friend.online_id)
 
+    _sync_self(conn, client, now)
     conn.commit()
     return {
         "processed": processed,
@@ -398,6 +399,30 @@ def _do_fetch_friends(npsso: str, progress_callback=None) -> dict:
         "total": total,
         "games_stored": games_stored,
     }
+
+
+def _sync_self(conn, client, now):
+    try:
+        summary = client.trophy_summary()
+        db.upsert_friend(conn, {
+            "account_id": client.account_id,
+            "online_id": client.online_id,
+            "trophy_level": summary.trophy_level,
+            "platinum": summary.earned_trophies.platinum,
+            "gold": summary.earned_trophies.gold,
+            "silver": summary.earned_trophies.silver,
+            "bronze": summary.earned_trophies.bronze,
+            "is_private": 0,
+            "fetched_at": now,
+        })
+        from . import auth
+        cfg = auth.load_config()
+        if not cfg.get("account_id"):
+            cfg["account_id"] = client.account_id
+            cfg["online_id"] = client.online_id
+            auth.save_config(cfg)
+    except Exception as e:
+        print(f"[friends] Error storing self: {e}")
 
 
 def fetch_friend_game_comparison(npsso: str, np_title_id: str,

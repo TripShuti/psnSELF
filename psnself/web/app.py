@@ -90,8 +90,8 @@ def _next_month(year: int, month: int) -> tuple[int, int]:
 def _auth_context() -> dict:
     cfg = auth.load_config()
     if cfg.get("npsso"):
-        return {"authenticated": True, "online_id": cfg.get("online_id", "unknown")}
-    return {"authenticated": False, "online_id": None}
+        return {"authenticated": True, "online_id": cfg.get("online_id", "unknown"), "account_id": cfg.get("account_id", "")}
+    return {"authenticated": False, "online_id": None, "account_id": None}
 
 
 def _load_schedule() -> dict:
@@ -165,11 +165,12 @@ async def auth_submit(request: Request):
     if len(npsso) != 64:
         return HTMLResponse('<span style="color: var(--err);">NPSSO must be exactly 64 characters</span>')
 
-    online_id = auth.validate_npsso(npsso)
-    if online_id is None:
+    result = auth.validate_npsso(npsso)
+    if result is None:
         return HTMLResponse('<span style="color: var(--err);">Invalid NPSSO. Make sure you copied it correctly.</span>')
+    online_id, account_id = result
 
-    auth.save_config({"npsso": npsso, "online_id": online_id})
+    auth.save_config({"npsso": npsso, "online_id": online_id, "account_id": account_id})
 
     def _run_both():
         _run_trophy_sync(npsso)
@@ -216,7 +217,7 @@ def _fmt_remaining(interval_hours: int, last_sync: float) -> str:
 def dashboard(request: Request):
     conn = db.get_conn()
     games = db.get_games(conn)
-    recent = db.get_recent_earned(conn, limit=10)
+    recent = db.get_recent_earned(conn, limit=8)
 
     # --- heatmap: 11-week window ---
     today = date.today()
@@ -239,10 +240,12 @@ def dashboard(request: Request):
                 cells.append({"count": None})
                 continue
             count = counts.get(cell_date.isoformat(), 0)
-            intensity = count / max_count if max_count else 0
-            color = "#0d5a45" if count == 0 else (
-                "#3abaa0" if intensity < 0.5 else "#00c8a0"
-            )
+            levels = ["#0d5a45", "#1a7a65", "#2a9a80", "#3abaa0", "#00c8a0"]
+            if count == 0:
+                color = levels[0]
+            else:
+                idx = min(int((count / max_count) * (len(levels) - 1)) + 1, len(levels) - 1) if max_count else len(levels) - 1
+                color = levels[idx]
             cells.append({"count": count, "date": cell_date.isoformat(), "color": color})
         rows.append((day_name, cells))
     heatmap = {"week_labels": week_labels, "rows": rows}
@@ -296,6 +299,7 @@ def dashboard(request: Request):
         "month_compare": month_compare, "playtime": playtime, "rarity": rarity,
         "today_year": today.year, "today_month": today.month,
         "has_no_time_games": has_no_time,
+        "rarity_labels": RARITY_LABELS,
     })
 
 
@@ -424,6 +428,7 @@ def game_detail(request: Request, np_comm_id: str):
         "friend_comparison": friend_comparison,
         "game_stats": game_stats,
         "today_sec": today_sec, "week_sec": week_sec, "month_sec": month_sec,
+        "rarity_labels": RARITY_LABELS,
     })
 
 
@@ -443,3 +448,37 @@ async def set_game_time(request: Request, np_comm_id: str):
     return HTMLResponse(
         f'<span style="color: var(--accent);">✓ Saved: {sec//3600}h {(sec%3600)//60:02d}m</span>'
     )
+
+
+@app.get("/compare/{account_id}", response_class=HTMLResponse)
+def friend_compare(request: Request, account_id: str):
+    conn = db.get_conn()
+    cfg = auth.load_config()
+    my_account_id = cfg.get("account_id", "")
+    if my_account_id and account_id == my_account_id:
+        raise HTTPException(status_code=400, detail="Cannot compare with yourself")
+
+    friend = conn.execute(
+        "SELECT online_id, trophy_level, platinum, gold, silver, bronze FROM friends_cache WHERE account_id = ?",
+        (account_id,)
+    ).fetchone()
+    if friend is None:
+        raise HTTPException(status_code=404, detail="Friend not found")
+
+    myself = None
+    if my_account_id:
+        myself = conn.execute(
+            "SELECT trophy_level FROM friends_cache WHERE account_id = ?",
+            (my_account_id,)
+        ).fetchone()
+    if myself is None:
+        myself = conn.execute(
+            "SELECT trophy_level FROM friends_cache WHERE online_id = ?",
+            (cfg.get("online_id", ""),)
+        ).fetchone()
+
+    games = db.get_friend_comparison_detail(conn, account_id)
+
+    return templates.TemplateResponse(request, "friend_compare.html", {
+        **_auth_context(), "friend": friend, "myself": myself, "games": games,
+    })

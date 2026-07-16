@@ -72,7 +72,7 @@
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+<div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 mt-4">
 
   <div class="term-card p-4">
     <span class="term-card__title">Trophies</span>
@@ -89,9 +89,9 @@
         {% for t in trophies %}
         <tr>
           <td class="py-1 pr-3">{{ t.trophy_name }}</td>
-          <td class="py-1" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type }}</td>
-          <td class="py-1" style="color: var(--fg-dim);">{{ t.trophy_rarity or '–' }}</td>
-          <td class="py-1 text-right" style="color: var(--fg-dim);">
+          <td class="py-1" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
+          <td class="py-1" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
+          <td class="py-1 text-right whitespace-nowrap" style="color: var(--fg-dim);">
             {{ t.earned_date_time[:10] if t.earned else '—' }}
           </td>
         </tr>
@@ -107,7 +107,10 @@
         <tr>
           <th class="py-1">Friend</th>
           <th class="py-1 text-right">Progress</th>
-          <th class="py-1 text-right">Total earned</th>
+          <th class="py-1 text-right" style="color: var(--plat); text-align: right !important;">P</th>
+          <th class="py-1 text-right" style="color: var(--gold); text-align: right !important;">G</th>
+          <th class="py-1 text-right" style="color: var(--silver); text-align: right !important;">S</th>
+          <th class="py-1 text-right" style="color: var(--bronze); text-align: right !important;">B</th>
         </tr>
       </thead>
       <tbody>
@@ -115,11 +118,14 @@
         <tr>
           <td class="py-1">{{ f.online_id }}</td>
           <td class="py-1 text-right">{{ f.progress }}%</td>
-          <td class="py-1 text-right font-bold">{{ f.earned_total }}</td>
+          <td class="py-1 text-right" style="color: var(--plat);">{{ f.earned_platinum|default(0, true) }}</td>
+          <td class="py-1 text-right" style="color: var(--gold);">{{ f.earned_gold|default(0, true) }}</td>
+          <td class="py-1 text-right" style="color: var(--silver);">{{ f.earned_silver|default(0, true) }}</td>
+          <td class="py-1 text-right" style="color: var(--bronze);">{{ f.earned_bronze|default(0, true) }}</td>
         </tr>
         {% endfor %}
         {% if not friend_comparison %}
-        <tr><td colspan="3" class="py-4 text-center" style="color: var(--fg-dim);">
+        <tr><td colspan="6" class="py-4 text-center" style="color: var(--fg-dim);">
           No friend data for this game yet.
         </td></tr>
         {% endif %}

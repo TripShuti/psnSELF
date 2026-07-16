@@ -38,25 +38,29 @@
       </div>
 
       <div class="max-h-[640px] overflow-y-auto">
-        <table class="term-table w-full text-sm">
-          <thead>
-            <tr>
-              <th class="py-1 px-2 sortable" data-sort="name" onclick="sortGames('name')"
-                  style="cursor: pointer;">Name</th>
-              <th class="py-1 px-2 text-center">Platform</th>
-              <th class="py-1 px-2 text-right">Progress</th>
-              <th class="py-1 px-2 text-right sortable" data-sort="playtime" onclick="sortGames('playtime')"
-                  style="cursor: pointer;">Play Time</th>
-              <th class="py-1 px-2 text-right sortable" data-sort="updated" onclick="sortGames('updated')"
-                  style="cursor: pointer;">Last Trophy</th>
-            </tr>
-          </thead>
-          <tbody id="games-tbody">
-            {% for g in games %}
-            <tr class="game-row"
-                data-name="{{ g.title_name|lower }}"
-                data-updated="{{ g.last_updated_datetime or '0000' }}"
-                data-play-seconds="{{ g.play_seconds }}">
+          <table class="term-table w-full text-sm">
+            <thead>
+              <tr>
+                <th class="py-1 px-2 sortable" data-sort="name" onclick="sortGames('name')"
+                    style="cursor: pointer;">Name</th>
+                <th class="py-1 px-2 text-center sortable" data-sort="platform" onclick="sortGames('platform')"
+                    style="cursor: pointer;">Platform</th>
+                <th class="py-1 px-2 text-right sortable" data-sort="progress" onclick="sortGames('progress')"
+                    style="cursor: pointer;">Progress</th>
+                <th class="py-1 px-2 text-right sortable" data-sort="playtime" onclick="sortGames('playtime')"
+                    style="cursor: pointer;">Played</th>
+                <th class="py-1 px-2 text-right sortable" data-sort="updated" onclick="sortGames('updated')"
+                    style="cursor: pointer;">Updated</th>
+              </tr>
+            </thead>
+            <tbody id="games-tbody">
+              {% for g in games %}
+              <tr class="game-row"
+                  data-name="{{ g.title_name|lower }}"
+                  data-platform="{{ g.platform or '' }}"
+                  data-progress="{{ g.progress or 0 }}"
+                  data-updated="{{ g.last_updated_datetime or '0000' }}"
+                  data-play-seconds="{{ g.play_seconds }}">
               <td class="py-1 px-2">
                 <a href="/game/{{ g.np_communication_id }}" class="hover:underline" style="color: var(--fg);">
                   {{ g.title_name }}
@@ -122,8 +126,8 @@
             <tr>
               <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.title_name }}</td>
               <td class="py-1 px-2">{{ t.trophy_name }}</td>
-              <td class="py-1 px-2" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type }}</td>
-              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.trophy_rarity or '–' }}</td>
+              <td class="py-1 px-2" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
+              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
               <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
                 {{ t.earned_date_time|fmt_date if t.earned_date_time else '–' }}
               </td>
@@ -293,7 +297,15 @@ function sortGames(by) {
       vb = b.dataset.name;
       return asc ? va.localeCompare(vb) : vb.localeCompare(va);
     }
-    if (by === 'playtime') {
+    if (by === 'platform') {
+      va = a.dataset.platform;
+      vb = b.dataset.platform;
+      return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    if (by === 'progress') {
+      va = _numVal(a.dataset.progress);
+      vb = _numVal(b.dataset.progress);
+    } else if (by === 'playtime') {
       va = _numVal(a.dataset.playSeconds);
       vb = _numVal(b.dataset.playSeconds);
     } else {

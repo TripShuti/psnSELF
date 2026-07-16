@@ -29,23 +29,30 @@
         <th class="py-1 text-right">Total</th>
       </tr>
     </thead>
-    <tbody>
-      {% for f in friends %}
-      <tr>
-        <td class="py-1" style="color: var(--fg-dim);">{{ loop.index }}</td>
-        <td class="py-1">{{ f.online_id }}</td>
-        {% if f.is_private %}
-        <td colspan="6" class="py-1" style="color: var(--fg-dim);">🔒 private profile</td>
-        {% else %}
-        <td class="py-1 text-right">{{ f.trophy_level }}</td>
-        <td class="py-1 text-right">{{ f.platinum }}</td>
-        <td class="py-1 text-right">{{ f.gold }}</td>
-        <td class="py-1 text-right">{{ f.silver }}</td>
-        <td class="py-1 text-right">{{ f.bronze }}</td>
-        <td class="py-1 text-right font-bold">{{ f.total }}</td>
-        {% endif %}
-      </tr>
-      {% endfor %}
+      <tbody>
+        {% for f in friends %}
+        <tr>
+          <td class="py-1" style="color: var(--fg-dim);">{{ loop.index }}</td>
+          <td class="py-1">
+            {% if f.is_private %}
+              {{ f.online_id }}
+            {% else %}
+              <a href="/compare/{{ f.account_id }}" class="hover:underline" style="color: var(--fg);">{{ f.online_id }}</a>
+            {% endif %}
+            {% if f.account_id == account_id %}<span style="color: var(--accent);"> (you)</span>{% endif %}
+          </td>
+          {% if f.is_private %}
+          <td colspan="6" class="py-1" style="color: var(--fg-dim);">🔒 private profile</td>
+          {% else %}
+          <td class="py-1 text-right">{{ f.trophy_level }}</td>
+          <td class="py-1 text-right">{{ f.platinum }}</td>
+          <td class="py-1 text-right">{{ f.gold }}</td>
+          <td class="py-1 text-right">{{ f.silver }}</td>
+          <td class="py-1 text-right">{{ f.bronze }}</td>
+          <td class="py-1 text-right font-bold">{{ f.total }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
       {% if not friends %}
       <tr><td colspan="8" class="py-4 text-center" style="color: var(--fg-dim);">
         No leaderboard data yet. Press <b>Refresh now</b> above to fetch it.
