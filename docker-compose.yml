@@ -1,5 +1,6 @@
 services:
   psnself:
+    container_name: psnself
     build: .
     ports:
       - "8420:8420"
