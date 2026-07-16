@@ -26,8 +26,7 @@
   * { font-family: 'JetBrains Mono', ui-monospace, monospace; }
   body { background: var(--bg); color: var(--fg); }
 
-  /* --- signature: terminal "border-title" seam, recreating the TUI's
-     border_title look where the label sits cut into the top border --- */
+  /* --- terminal "border-title" seam --- */
   .term-card {
     position: relative;
     border: 1px solid var(--primary);
@@ -101,8 +100,6 @@
     {% block content %}{% endblock %}
   </main>
 
-   <footer class="max-w-7xl mx-auto px-6 py-6 text-xs" style="color: var(--fg-dim);">
-    psnSELF web · self-hosted
-  </footer>
+
 </body>
 </html>

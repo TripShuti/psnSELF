@@ -1,6 +1,5 @@
 """
-psnTUI web dashboard — a read-only web frontend over the same SQLite
-database the TUI and headless sync already use.
+psnSELF — read-only web frontend over the SQLite database.
 """
 from __future__ import annotations
 
@@ -20,7 +19,7 @@ from psnself import auth, db, sync
 
 SCHEDULE_PATH = auth.get_config_path().parent / "schedule.json"
 
-app = FastAPI(title="psnTUI web")
+app = FastAPI(title="psnSELF")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 TROPHY_COLOR_VAR = {
@@ -211,7 +210,7 @@ def dashboard(request: Request):
     games = db.get_games(conn)
     recent = db.get_recent_earned(conn, limit=10)
 
-    # --- heatmap: same 11-week window as the TUI ---
+    # --- heatmap: 11-week window ---
     today = date.today()
     weeks_back = 10
     start_date = today - timedelta(weeks=weeks_back, days=today.weekday())
@@ -302,7 +301,7 @@ def partial_day(request: Request, date_str: str):
 def partial_calendar(request: Request, year: int, month: int):
     conn = db.get_conn()
     daily = db.get_daily_play_time(conn, year, month)
-    cal = Calendar(firstweekday=0)  # Monday first, matches the TUI
+    cal = Calendar(firstweekday=0)  # Monday first
     cells = []
     for day in cal.itermonthdates(year, month):
         if day.month != month:
@@ -336,7 +335,7 @@ def friends(request: Request):
     conn = db.get_conn()
     rows = db.get_friends_leaderboard(conn)
     fetched_at = db.get_friends_fetched_at(conn)
-    label = "Never refreshed — press l then r in the TUI"
+    label = "Never refreshed — press Refresh now above"
     if fetched_at:
         dt = datetime.fromisoformat(fetched_at)
         now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
