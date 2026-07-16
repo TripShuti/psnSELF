@@ -322,6 +322,7 @@ def write_sync_log(warnings: list[str]) -> None:
 
 
 def fetch_friends_leaderboard(npsso: str, progress_callback=None) -> dict:
+    _ensure_request_timeout()
     conn = db.get_conn()
     psnawp = PSNAWP(npsso_cookie=npsso)
     client = psnawp.me()
@@ -379,7 +380,8 @@ def fetch_friends_leaderboard(npsso: str, progress_callback=None) -> dict:
                 "fetched_at": now,
             })
             private += 1
-        except Exception:
+        except Exception as e:
+            print(f"[friends] Error processing {friend.online_id}: {e}")
             errors += 1
         if progress_callback:
             progress_callback(i + 1, total, friend.online_id)

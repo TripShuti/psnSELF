@@ -124,6 +124,7 @@ def _scheduler_loop() -> None:
                     print("[schedule] Starting trophy sync…")
                     _run_trophy_sync(npsso)
                     _save_schedule({"last_trophy_sync": time.time()})
+                    time.sleep(30)
             if fi > 0:
                 last = cfg.get("last_friends_sync", 0)
                 if now - last >= fi * 3600:
