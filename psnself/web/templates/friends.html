@@ -37,9 +37,8 @@
             {% if f.is_private %}
               {{ f.online_id }}
             {% else %}
-              <a href="/compare/{{ f.account_id }}" class="hover:underline" style="color: var(--fg);">{{ f.online_id }}</a>
+              <a href="/compare/{{ f.account_id }}" class="hover:underline" style="color: {% if f.account_id == account_id %}var(--accent){% else %}var(--fg){% endif %};">{{ f.online_id }}</a>
             {% endif %}
-            {% if f.account_id == account_id %}<span style="color: var(--accent);"> (you)</span>{% endif %}
           </td>
           {% if f.is_private %}
           <td colspan="6" class="py-1" style="color: var(--fg-dim);">🔒 private profile</td>
