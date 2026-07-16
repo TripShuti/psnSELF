@@ -322,6 +322,10 @@ def write_sync_log(warnings: list[str]) -> None:
 
 
 def fetch_friends_leaderboard(npsso: str, progress_callback=None) -> dict:
+    with _sync_lock:
+        return _do_fetch_friends(npsso, progress_callback)
+
+def _do_fetch_friends(npsso: str, progress_callback=None) -> dict:
     _ensure_request_timeout()
     conn = db.get_conn()
     psnawp = PSNAWP(npsso_cookie=npsso)

@@ -171,8 +171,11 @@ async def auth_submit(request: Request):
 
     auth.save_config({"npsso": npsso, "online_id": online_id})
 
-    threading.Thread(target=_run_trophy_sync, args=(npsso,), daemon=True).start()
-    threading.Thread(target=_run_friends_sync, args=(npsso,), daemon=True).start()
+    def _run_both():
+        _run_trophy_sync(npsso)
+        time.sleep(30)
+        _run_friends_sync(npsso)
+    threading.Thread(target=_run_both, daemon=True).start()
 
     return HTMLResponse(
         f'<span style="color: var(--accent);">Authenticated as {online_id}! '

@@ -47,25 +47,6 @@
           {% if month_sec > 0 %}{{ moh }}h {{ "%02d" % mom }}m{% else %}—{% endif %}
         </b></span>
       </div>
-      <div class="mt-3 flex gap-2 items-center">
-        <span id="time-msg" class="text-xs" style="color: var(--fg-dim);"></span>
-        <input
-          id="time-input"
-          name="hours"
-          type="text"
-          placeholder="Set new time (e.g. 25.5 or 2h 30m)"
-          class="text-xs px-2 py-1 bg-transparent border outline-none flex-1 max-w-xs"
-          style="border-color: var(--secondary); color: var(--fg);">
-        <button
-          class="text-xs px-2 py-0.5 border whitespace-nowrap"
-          style="border-color: var(--secondary); color: var(--fg-dim);"
-          hx-post="/game/{{ game.np_communication_id }}/time"
-          hx-include="#time-input"
-          hx-target="#time-msg"
-          hx-swap="innerHTML">
-          Set
-        </button>
-      </div>
     {% else %}
       <div style="color: var(--fg-dim);">No play time data</div>
       <div class="mt-3 flex gap-2 items-center">
