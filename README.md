@@ -1,5 +1,6 @@
 # psnSELF
-<img width="1124" height="1147" alt="image" src="https://github.com/user-attachments/assets/5ec0dbc2-69c5-475d-9e26-d5ffd5b7665d" />
+<img width="1124" height="1144" alt="image" src="https://github.com/user-attachments/assets/3948c144-7c04-4611-9c47-9342c46be000" />
+
 
 Self-hosted web dashboard for your PlayStation Network trophies.
 
