@@ -262,10 +262,14 @@ def _do_sync(npsso: str, progress_callback=None) -> dict:
                     (ts_stats.title_id, np_comm_id)
                 )
             if ts_stats.play_duration is not None:
+                psn_secs = int(ts_stats.play_duration.total_seconds())
+                existing_gs = db.get_game_stats(conn, np_comm_id)
+                if existing_gs and existing_gs["title_id"] is None and psn_secs == 0:
+                    continue
                 db.update_game_stats(
                     conn, np_comm_id,
                     title_id=ts_stats.title_id,
-                    total_seconds=int(ts_stats.play_duration.total_seconds()),
+                    total_seconds=psn_secs,
                     play_count=ts_stats.play_count,
                     first_played=ts_stats.first_played_date_time.isoformat()
                     if ts_stats.first_played_date_time else None,
