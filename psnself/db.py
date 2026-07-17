@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import sqlite3
 from pathlib import Path
-from datetime import datetime, date, timedelta
-from typing import Optional
-import time
+from datetime import datetime
 import threading
+
+from psnself.db_gamestats import MAX_DELTA_SECONDS
+
+_HERE = Path(__file__).parent
 
 DB_PATH: Path | None = None
 
@@ -26,13 +30,17 @@ def get_conn() -> sqlite3.Connection:
     if conn is not None:
         try:
             conn.execute("SELECT 1")
-            return conn
+            path_match = conn.execute(
+                "PRAGMA database_list"
+            ).fetchone()
+            if path_match and path_match[2] == str(DB_PATH):
+                return conn
         except (sqlite3.ProgrammingError, sqlite3.OperationalError):
             try:
                 conn.close()
             except sqlite3.Error:
                 pass
-    conn = sqlite3.connect(str(DB_PATH), timeout=15)
+    conn = sqlite3.connect(str(DB_PATH), timeout=15, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout=10000")
     conn.execute("PRAGMA journal_mode=WAL")
@@ -51,96 +59,8 @@ def close_conn() -> None:
         _local.conn = None
 
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS games (
-    np_communication_id TEXT PRIMARY KEY,
-    np_title_id TEXT,
-    title_name TEXT NOT NULL,
-    title_icon_url TEXT,
-    platform TEXT,
-    defined_bronze INTEGER DEFAULT 0,
-    defined_silver INTEGER DEFAULT 0,
-    defined_gold INTEGER DEFAULT 0,
-    defined_platinum INTEGER DEFAULT 0,
-    earned_bronze INTEGER DEFAULT 0,
-    earned_silver INTEGER DEFAULT 0,
-    earned_gold INTEGER DEFAULT 0,
-    earned_platinum INTEGER DEFAULT 0,
-    progress INTEGER DEFAULT 0,
-    last_updated_datetime TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS trophies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    np_communication_id TEXT NOT NULL,
-    trophy_id INTEGER NOT NULL,
-    trophy_name TEXT,
-    trophy_detail TEXT,
-    trophy_type TEXT,
-    trophy_icon_url TEXT,
-    trophy_hidden INTEGER DEFAULT 0,
-    trophy_group_id TEXT DEFAULT 'default',
-    earned INTEGER DEFAULT 0,
-    earned_date_time TEXT,
-    trophy_rarity TEXT,
-    trophy_earn_rate REAL,
-    progress INTEGER,
-    progress_rate INTEGER,
-    UNIQUE(np_communication_id, trophy_id),
-    FOREIGN KEY (np_communication_id) REFERENCES games(np_communication_id)
-);
-
-CREATE TABLE IF NOT EXISTS game_stats (
-    np_communication_id TEXT PRIMARY KEY,
-    title_id TEXT,
-    total_seconds INTEGER NOT NULL DEFAULT 0,
-    play_count INTEGER DEFAULT 0,
-    first_played TEXT,
-    last_played TEXT,
-    FOREIGN KEY (np_communication_id) REFERENCES games(np_communication_id)
-);
-
-CREATE TABLE IF NOT EXISTS play_delta_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    np_communication_id TEXT NOT NULL,
-    date TEXT NOT NULL,
-    delta_seconds INTEGER NOT NULL,
-    UNIQUE(np_communication_id, date),
-    FOREIGN KEY (np_communication_id) REFERENCES games(np_communication_id)
-);
-
-CREATE TABLE IF NOT EXISTS sync_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    started_at TEXT DEFAULT (datetime('now')),
-    finished_at TEXT,
-    status TEXT DEFAULT 'running',
-    error_message TEXT,
-    trophies_added INTEGER DEFAULT 0,
-    games_updated INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS friends_cache (
-    account_id TEXT PRIMARY KEY,
-    online_id TEXT NOT NULL,
-    trophy_level INTEGER,
-    platinum INTEGER, gold INTEGER, silver INTEGER, bronze INTEGER,
-    is_private INTEGER DEFAULT 0,
-    fetched_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS friend_game_cache (
-    account_id TEXT NOT NULL,
-    np_communication_id TEXT NOT NULL,
-    progress INTEGER, earned_platinum INTEGER, earned_gold INTEGER,
-    earned_silver INTEGER, earned_bronze INTEGER,
-    is_private INTEGER DEFAULT 0,
-    fetched_at TEXT NOT NULL,
-    PRIMARY KEY (account_id, np_communication_id)
-);
-
-"""
+def _read_schema() -> str:
+    return (_HERE / "schema.sql").read_text()
 
 
 def init_db() -> None:
@@ -149,10 +69,11 @@ def init_db() -> None:
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     except sqlite3.OperationalError:
         pass
-    conn.executescript(SCHEMA)
+    conn.executescript(_read_schema())
 
     conn.execute(
-        "DELETE FROM play_delta_history WHERE delta_seconds > 86400"
+        "DELETE FROM play_delta_history WHERE delta_seconds > ?",
+        (MAX_DELTA_SECONDS,)
     )
 
     try:
@@ -243,7 +164,10 @@ def get_last_sync_time(conn: sqlite3.Connection) -> datetime | None:
         "SELECT started_at FROM sync_log WHERE status = 'success' ORDER BY started_at DESC LIMIT 1"
     ).fetchone()
     if row:
-        return datetime.fromisoformat(row["started_at"])
+        try:
+            return datetime.fromisoformat(row["started_at"])
+        except ValueError:
+            return None
     return None
 
 
@@ -256,117 +180,11 @@ def game_exists(conn: sqlite3.Connection, np_comm_id: str) -> bool:
 
 def get_games(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute("""
-        SELECT g.*, COALESCE(gs.total_seconds, 0) as play_seconds,
-               gs.title_id is not null as has_psn_time
+        SELECT g.*, COALESCE(gs.total_seconds, 0) as play_seconds
         FROM games g
         LEFT JOIN game_stats gs ON gs.np_communication_id = g.np_communication_id
         ORDER BY g.last_updated_datetime DESC NULLS LAST
     """).fetchall()
-
-
-def get_game_stats(conn: sqlite3.Connection, np_comm_id: str) -> sqlite3.Row | None:
-    return conn.execute(
-        "SELECT * FROM game_stats WHERE np_communication_id = ?", (np_comm_id,)
-    ).fetchone()
-
-
-def update_game_stats(conn: sqlite3.Connection, np_comm_id: str,
-                      title_id: str | None,
-                      total_seconds: int,
-                      play_count: int | None,
-                      first_played: str | None,
-                      last_played: str | None) -> None:
-    old = conn.execute(
-        "SELECT total_seconds FROM game_stats WHERE np_communication_id = ?",
-        (np_comm_id,)
-    ).fetchone()
-
-    conn.execute("""
-        INSERT OR REPLACE INTO game_stats
-            (np_communication_id, title_id, total_seconds, play_count, first_played, last_played)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (np_comm_id, title_id, total_seconds, play_count or 0,
-          first_played, last_played))
-
-    if old is not None:
-        delta = total_seconds - old["total_seconds"]
-        if delta > 0:
-            play_date = last_played[:10] if last_played else date.today().isoformat()
-            conn.execute("""
-                INSERT INTO play_delta_history (np_communication_id, date, delta_seconds)
-                VALUES (?, ?, ?)
-                ON CONFLICT(np_communication_id, date)
-                DO UPDATE SET delta_seconds = delta_seconds + excluded.delta_seconds
-            """, (np_comm_id, play_date, delta))
-
-
-def get_play_time(conn: sqlite3.Connection, np_comm_id: str,
-                  since: str, until: str) -> int:
-    row = conn.execute("""
-        SELECT COALESCE(SUM(delta_seconds), 0) as total
-        FROM play_delta_history
-        WHERE np_communication_id = ? AND date >= ? AND date <= ?
-    """, (np_comm_id, since, until)).fetchone()
-    return row["total"] if row else 0
-
-
-def get_total_play_time(conn: sqlite3.Connection) -> int:
-    row = conn.execute(
-        "SELECT COALESCE(SUM(total_seconds), 0) as total FROM game_stats"
-    ).fetchone()
-    return row["total"] if row else 0
-
-
-def get_total_play_delta(conn: sqlite3.Connection,
-                         since: str, until: str) -> int:
-    row = conn.execute("""
-        SELECT COALESCE(SUM(delta_seconds), 0) as total
-        FROM play_delta_history
-        WHERE date >= ? AND date <= ?
-    """, (since, until)).fetchone()
-    return row["total"] if row else 0
-
-
-def _month_bounds(year: int, month: int) -> tuple[str, str]:
-    start = date(year, month, 1)
-    if month == 12:
-        end = date(year + 1, 1, 1)
-    else:
-        end = date(year, month + 1, 1)
-    return start.isoformat(), end.isoformat()
-
-
-def get_daily_play_time(conn: sqlite3.Connection,
-                        year: int, month: int) -> dict[str, int]:
-    since, until = _month_bounds(year, month)
-    rows = conn.execute("""
-        SELECT date, COALESCE(SUM(delta_seconds), 0) as total
-        FROM play_delta_history
-        WHERE date >= ? AND date < ?
-        GROUP BY date
-    """, (since, until)).fetchall()
-    return {r["date"]: r["total"] for r in rows}
-
-
-def get_daily_play_details(conn: sqlite3.Connection,
-                           date_str: str) -> list[dict]:
-    return conn.execute("""
-        SELECT g.title_name, pdh.delta_seconds
-        FROM play_delta_history pdh
-        JOIN games g ON g.np_communication_id = pdh.np_communication_id
-        WHERE pdh.date = ? AND pdh.delta_seconds > 0
-        ORDER BY pdh.delta_seconds DESC
-    """, (date_str,)).fetchall()
-
-
-def set_manual_play_time(conn: sqlite3.Connection,
-                         np_comm_id: str,
-                         total_seconds: int) -> None:
-    conn.execute("""
-        INSERT OR REPLACE INTO game_stats
-            (np_communication_id, title_id, total_seconds, play_count)
-        VALUES (?, NULL, ?, 0)
-    """, (np_comm_id, total_seconds))
 
 
 def get_game(conn: sqlite3.Connection, np_comm_id: str) -> sqlite3.Row | None:
@@ -393,20 +211,6 @@ def get_recent_earned(conn: sqlite3.Connection, limit: int = 10) -> list[sqlite3
     """, (limit,)).fetchall()
 
 
-def get_trophy_summary(conn: sqlite3.Connection) -> dict:
-    row = conn.execute("""
-        SELECT
-            COUNT(DISTINCT np_communication_id) as total_games,
-            SUM(CASE WHEN earned = 1 THEN 1 ELSE 0 END) as total_earned,
-            COUNT(*) as total_trophies,
-            SUM(CASE WHEN trophy_type = 'platinum' AND earned = 1 THEN 1 ELSE 0 END) as platinum,
-            SUM(CASE WHEN trophy_type = 'gold' AND earned = 1 THEN 1 ELSE 0 END) as gold,
-            SUM(CASE WHEN trophy_type = 'silver' AND earned = 1 THEN 1 ELSE 0 END) as silver,
-            SUM(CASE WHEN trophy_type = 'bronze' AND earned = 1 THEN 1 ELSE 0 END) as bronze
-        FROM trophies
-    """).fetchone()
-    return dict(row) if row else {}
-
 
 def get_earned_by_date_range(conn: sqlite3.Connection, since: str, until: str) -> list[sqlite3.Row]:
     return conn.execute("""
@@ -418,6 +222,20 @@ def get_earned_by_date_range(conn: sqlite3.Connection, since: str, until: str) -
     """, (since, until)).fetchall()
 
 
+def get_rarest_trophies(conn: sqlite3.Connection, limit: int = 5) -> list[dict]:
+    rows = conn.execute("""
+        SELECT t.trophy_name, t.trophy_rarity,
+               ROUND(COALESCE(t.trophy_earn_rate, 0), 1) as trophy_earn_rate,
+               t.trophy_type, g.title_name
+        FROM trophies t
+        LEFT JOIN games g ON g.np_communication_id = t.np_communication_id
+        WHERE t.earned = 1 AND t.trophy_earn_rate IS NOT NULL
+        ORDER BY t.trophy_earn_rate ASC
+        LIMIT ?
+    """, (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_trophies_by_date(conn: sqlite3.Connection, date_str: str) -> list[sqlite3.Row]:
     return conn.execute("""
         SELECT t.*, g.title_name
@@ -426,138 +244,5 @@ def get_trophies_by_date(conn: sqlite3.Connection, date_str: str) -> list[sqlite
         WHERE t.earned = 1 AND DATE(t.earned_date_time) = ?
         ORDER BY t.earned_date_time
     """, (date_str,)).fetchall()
-
-
-def get_consecutive_days(conn: sqlite3.Connection) -> int:
-    rows = conn.execute("""
-        SELECT DISTINCT DATE(earned_date_time) as day
-        FROM trophies
-        WHERE earned = 1 AND earned_date_time IS NOT NULL
-        ORDER BY day DESC
-    """).fetchall()
-
-    if not rows:
-        return 0
-
-    streak = 0
-    expected = date.today()
-
-    for row in rows:
-        d = date.fromisoformat(row["day"])
-        if d == expected:
-            streak += 1
-            expected -= timedelta(days=1)
-        elif d < expected:
-            break
-        # skip future dates (shouldn't happen, but defensive)
-
-    return streak
-
-
-def get_earned_month(conn: sqlite3.Connection, year: int, month: int) -> int:
-    row = conn.execute("""
-        SELECT COUNT(*) as count FROM trophies
-        WHERE earned = 1
-            AND strftime('%Y', earned_date_time) = ?
-            AND strftime('%m', earned_date_time) = ?
-    """, (str(year), f"{month:02d}")).fetchone()
-    return row["count"] if row else 0
-
-
-def upsert_friend(conn: sqlite3.Connection, f: dict) -> None:
-    conn.execute("""
-        INSERT INTO friends_cache
-            (account_id, online_id, trophy_level, platinum, gold, silver, bronze,
-             is_private, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(account_id)
-        DO UPDATE SET
-            online_id = excluded.online_id,
-            trophy_level = excluded.trophy_level,
-            platinum = excluded.platinum,
-            gold = excluded.gold,
-            silver = excluded.silver,
-            bronze = excluded.bronze,
-            is_private = excluded.is_private,
-            fetched_at = excluded.fetched_at
-    """, (
-        f["account_id"], f["online_id"], f.get("trophy_level"),
-        f.get("platinum", 0), f.get("gold", 0), f.get("silver", 0),
-        f.get("bronze", 0), f.get("is_private", 0), f["fetched_at"],
-    ))
-
-
-def upsert_friend_game(conn: sqlite3.Connection, fg: dict) -> None:
-    conn.execute("""
-        INSERT INTO friend_game_cache
-            (account_id, np_communication_id, progress,
-             earned_platinum, earned_gold, earned_silver, earned_bronze,
-             is_private, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(account_id, np_communication_id)
-        DO UPDATE SET
-            progress = excluded.progress,
-            earned_platinum = excluded.earned_platinum,
-            earned_gold = excluded.earned_gold,
-            earned_silver = excluded.earned_silver,
-            earned_bronze = excluded.earned_bronze,
-            is_private = excluded.is_private,
-            fetched_at = excluded.fetched_at
-    """, (
-        fg["account_id"], fg["np_communication_id"], fg.get("progress"),
-        fg.get("earned_platinum", 0), fg.get("earned_gold", 0),
-        fg.get("earned_silver", 0), fg.get("earned_bronze", 0),
-        fg.get("is_private", 0), fg["fetched_at"],
-    ))
-
-
-def get_friends_leaderboard(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    return conn.execute("""
-        SELECT *, (COALESCE(platinum,0) + COALESCE(gold,0)
-                   + COALESCE(silver,0) + COALESCE(bronze,0)) as total
-        FROM friends_cache
-        ORDER BY trophy_level DESC
-    """).fetchall()
-
-
-def get_friend_game_comparison(conn: sqlite3.Connection,
-                                np_comm_id: str) -> list[sqlite3.Row]:
-    return conn.execute("""
-        SELECT fgc.*, fc.online_id,
-            (COALESCE(earned_platinum,0) + COALESCE(earned_gold,0)
-             + COALESCE(earned_silver,0) + COALESCE(earned_bronze,0)) as earned_total
-        FROM friend_game_cache fgc
-        JOIN friends_cache fc ON fc.account_id = fgc.account_id
-        WHERE fgc.np_communication_id = ?
-        ORDER BY earned_total DESC
-    """, (np_comm_id,)).fetchall()
-
-
-def get_friend_comparison_detail(conn: sqlite3.Connection,
-                                  friend_account_id: str) -> list[sqlite3.Row]:
-    return conn.execute("""
-        SELECT
-          g.title_name, g.platform,
-          g.progress AS my_progress,
-          g.earned_platinum AS my_plat, g.earned_gold AS my_gold,
-          g.earned_silver AS my_silver, g.earned_bronze AS my_bronze,
-          COALESCE(gs.total_seconds, 0) AS my_seconds,
-          fgc.progress AS friend_progress,
-          fgc.earned_platinum AS friend_plat, fgc.earned_gold AS friend_gold,
-          fgc.earned_silver AS friend_silver, fgc.earned_bronze AS friend_bronze
-        FROM friend_game_cache fgc
-        JOIN games g ON g.np_communication_id = fgc.np_communication_id
-        LEFT JOIN game_stats gs ON gs.np_communication_id = fgc.np_communication_id
-        WHERE fgc.account_id = ?
-          AND fgc.is_private = 0
-        ORDER BY g.title_name
-    """, (friend_account_id,)).fetchall()
-
-
-def get_friends_fetched_at(conn: sqlite3.Connection) -> str | None:
-    row = conn.execute(
-        "SELECT MAX(fetched_at) as fetched_at FROM friends_cache"
-    ).fetchone()
-    return row["fetched_at"] if row and row["fetched_at"] else None
 
 

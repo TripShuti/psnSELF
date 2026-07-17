@@ -85,56 +85,79 @@
       </div>
     </div>
 
+    <!-- Rarest Trophies — compact, under Games -->
     <div class="term-card p-4">
-      <span class="term-card__title">Rarity Distribution</span>
-      <div class="mt-3 space-y-3 text-sm">
-        {% for r in rarity %}
-        <div>
-          <div class="flex justify-between mb-1">
-            <span>{{ r.label }}</span>
-            <span style="color: var(--fg-dim);">{{ r.count }} ({{ r.pct }}%)</span>
-          </div>
-          <div class="bar-track h-2 w-full">
-            <div class="bar-fill h-2" style="width: {{ r.bar_pct }}%;"></div>
-          </div>
-        </div>
-        {% endfor %}
+      <span class="term-card__title accent">Rarest Trophies</span>
+      <div class="overflow-x-auto mt-1">
+        <table class="term-table w-full text-sm">
+          <thead>
+            <tr>
+              <th class="py-1 pr-3 hidden sm:table-cell">Game</th>
+              <th class="py-1 pr-3">Trophy</th>
+              <th class="py-1 pr-3 text-right">Rate</th>
+              <th class="py-1 text-right hidden sm:table-cell">Rarity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in rarest %}
+            <tr>
+              <td class="py-1 pr-3 hidden sm:table-cell" style="color: var(--fg-dim); max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ t.title_name }}</td>
+              <td class="py-1 pr-3">{{ t.trophy_name }}</td>
+              <td class="py-1 pr-3 text-right" style="color: var(--fg-dim);">{{ t.trophy_earn_rate }}%</td>
+              <td class="py-1 text-right hidden sm:table-cell" style="color: var(--{{ rarity_colors.get(t.trophy_rarity, 'fg-dim') }});">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
+            </tr>
+            {% endfor %}
+            {% if not rarest %}
+            <tr><td colspan="4" class="py-4 text-center" style="color: var(--fg-dim);">No trophy data yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
       </div>
     </div>
 
   </div>
 
-  <!-- RIGHT COLUMN: everything else stacked together, as ONE grid cell,
-       so its total height never fights with the Games card's height -->
+  <!-- RIGHT COLUMN -->
   <div class="flex flex-col gap-8">
 
-    <div class="term-card p-4">
-      <span class="term-card__title accent">Recent Trophies</span>
-      <div class="overflow-x-auto">
-        <table class="term-table w-full text-sm mt-2">
-          <thead>
-            <tr>
-              <th class="py-1 px-2">Game</th>
-              <th class="py-1 px-2">Trophy</th>
-              <th class="py-1 px-2 hidden sm:table-cell">Type</th>
-              <th class="py-1 px-2 hidden sm:table-cell">Rarity</th>
-              <th class="py-1 px-2 text-right">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for t in recent %}
-            <tr>
-              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.title_name }}</td>
-              <td class="py-1 px-2">{{ t.trophy_name }}</td>
-              <td class="py-1 px-2 hidden sm:table-cell" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
-              <td class="py-1 px-2 hidden sm:table-cell" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
-              <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
-                {{ t.earned_date_time|fmt_date if t.earned_date_time else '–' }}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <!-- Player + Play Time side by side -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
+      <div class="term-card p-4" style="position: relative;">
+        <span class="term-card__title accent">Player</span>
+        {% if self_stats %}
+        <div class="text-right" style="position: absolute; top: 0.5rem; right: 0.75rem; color: var(--accent); font-weight: 700; font-size: 0.8rem;">{{ self_stats.online_id }}</div>
+        {% endif %}
+        <div class="mt-3 text-xs sm:text-sm leading-relaxed space-y-1.5" style="color: var(--fg-dim);">
+          {% if self_stats %}
+          <div>Level <span style="color: var(--fg);">{{ self_stats.trophy_level }}</span></div>
+          <div>Total <span style="color: var(--fg);">{{ self_stats.total }}</span> trophies</div>
+          <div class="mt-1 flex flex-wrap gap-x-4">
+            <span style="color: var(--plat);">P{{ self_stats.platinum }}</span>
+            <span style="color: var(--gold);">G{{ self_stats.gold }}</span>
+            <span style="color: var(--silver);">S{{ self_stats.silver }}</span>
+            <span style="color: var(--bronze);">B{{ self_stats.bronze }}</span>
+          </div>
+          {% else %}
+          <div style="color: var(--fg-dim);">Not synced yet</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="term-card p-4">
+        <span class="term-card__title accent">Play Time</span>
+        <div class="mt-2 text-sm space-y-1">
+          <div>Total: <b>{{ playtime.total }}</b></div>
+          <div>Today: <b>{{ playtime.today }}</b> &nbsp; Week: <b>{{ playtime.week }}</b> &nbsp; Month: <b>{{ playtime.month }}</b></div>
+          <button
+            class="mt-2 text-xs px-2 py-1 border"
+            style="border-color: var(--secondary); color: var(--fg-dim);"
+            hx-get="/partials/calendar/{{ today_year }}/{{ today_month }}"
+            hx-target="#calendar-modal-content"
+            hx-swap="innerHTML"
+            onclick="document.getElementById('calendar-modal').classList.remove('hidden')">
+            View calendar →
+          </button>
+        </div>
       </div>
     </div>
 
@@ -179,33 +202,33 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
-      <div class="term-card p-4">
-        <span class="term-card__title">{{ month_compare.cur_label }} vs {{ month_compare.prev_label }}</span>
-        <div class="mt-2 text-sm space-y-1">
-          <div>{{ month_compare.cur_label }}: <b>{{ month_compare.cur_count }}</b> trophies</div>
-          <div>{{ month_compare.prev_label }}: <b>{{ month_compare.prev_count }}</b> trophies</div>
-          <div style="color: {% if month_compare.change >= 0 %}var(--accent){% else %}var(--err){% endif %};">
-            Change: {{ month_compare.change }}% {{ '↑' if month_compare.change >= 0 else '↓' }}
-          </div>
-        </div>
-      </div>
-
-      <div class="term-card p-4">
-        <span class="term-card__title accent">Play Time</span>
-        <div class="mt-2 text-sm space-y-1">
-          <div>Total: <b>{{ playtime.total }}</b></div>
-          <div>Today: <b>{{ playtime.today }}</b> &nbsp; Week: <b>{{ playtime.week }}</b> &nbsp; Month: <b>{{ playtime.month }}</b></div>
-          <button
-            class="mt-2 text-xs px-2 py-1 border"
-            style="border-color: var(--secondary); color: var(--fg-dim);"
-            hx-get="/partials/calendar/{{ today_year }}/{{ today_month }}"
-            hx-target="#calendar-modal-content"
-            hx-swap="innerHTML"
-            onclick="document.getElementById('calendar-modal').classList.remove('hidden')">
-            View calendar →
-          </button>
-        </div>
+    <div class="term-card p-4">
+      <span class="term-card__title accent">Recent Trophies</span>
+      <div class="overflow-x-auto">
+        <table class="term-table w-full text-sm mt-2">
+          <thead>
+            <tr>
+              <th class="py-1 px-2">Game</th>
+              <th class="py-1 px-2">Trophy</th>
+              <th class="py-1 px-2 hidden sm:table-cell">Type</th>
+              <th class="py-1 px-2 hidden sm:table-cell">Rarity</th>
+              <th class="py-1 px-2 text-right">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in recent %}
+            <tr>
+              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.title_name }}</td>
+              <td class="py-1 px-2">{{ t.trophy_name }}</td>
+              <td class="py-1 px-2 hidden sm:table-cell" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
+              <td class="py-1 px-2 hidden sm:table-cell" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
+              <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
+                {{ t.earned_date_time|fmt_date if t.earned_date_time else '–' }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
 

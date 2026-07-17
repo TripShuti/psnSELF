@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN pip install --no-cache-dir .[web] python-multipart
+RUN pip install --no-cache-dir .[web]
 
 EXPOSE 8420
 

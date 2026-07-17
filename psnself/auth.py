@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from pathlib import Path
 from platformdirs import user_config_dir
@@ -28,22 +30,12 @@ def save_config(config: dict) -> None:
     CONFIG_PATH.chmod(0o600)
 
 
-def is_authenticated() -> bool:
-    config = load_config()
-    return bool(config.get("npsso"))
-
-
 def validate_npsso(npsso: str) -> tuple[str, str] | None:
     from psnawp_api import PSNAWP
+    from psnawp_api.core.psnawp_exceptions import PSNAWPError
     try:
         psnawp = PSNAWP(npsso_cookie=npsso)
         client = psnawp.me()
         return client.online_id, client.account_id
-    except Exception:
+    except PSNAWPError:
         return None
-
-
-def save_theme_preference(name: str) -> None:
-    config = load_config()
-    config["theme"] = name
-    save_config(config)

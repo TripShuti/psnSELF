@@ -27,6 +27,10 @@ psnself = "psnself.cli:main"
 [tool.setuptools.packages.find]
 include = ["psnself*"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
 [project.urls]
 Homepage = "https://github.com/TripShuti/psnself"
 Repository = "https://github.com/TripShuti/psnself"

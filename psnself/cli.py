@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import argparse
 import sys
 
 
-def headless_sync():
+def headless_sync() -> None:
     from . import auth, db, sync
 
     config = auth.load_config()
@@ -18,10 +20,10 @@ def headless_sync():
 
     def on_progress(current, total, name):
         if total > 0:
-            pct = int((current / total) * 100)
-            print(f"  [{pct:3d}%] ({current+1}/{total}) {name}", end="\r")
+            pct = int(((current + 1) / total) * 100)
+            print(f"  [{pct:3d}%] ({current + 1}/{total}) {name}", end="\r")
         else:
-            print(f"  ({current+1}) {name}", end="\r")
+            print(f"  ({current + 1}) {name}", end="\r")
 
     result = sync.sync_trophies(config["npsso"], progress_callback=on_progress)
     print()
@@ -39,18 +41,18 @@ def headless_sync():
     db.close_conn()
 
 
-def _dump_stats():
+def _dump_stats() -> None:
     from . import auth, sync as sync_module
+    from .sync.extractor import _DEFAULT_RATE_LIMIT
 
     config = auth.load_config()
     if not config.get("npsso"):
         print("Error: Not authenticated.")
         sys.exit(1)
 
-    from pyrate_limiter import Rate
     from psnawp_api import PSNAWP
 
-    psnawp = PSNAWP(npsso_cookie=config["npsso"], rate_limit=Rate(1, 3))
+    psnawp = PSNAWP(npsso_cookie=config["npsso"], rate_limit=_DEFAULT_RATE_LIMIT)
     client = psnawp.me()
 
     stats_names: set[str] = set()
@@ -79,7 +81,7 @@ def _dump_stats():
         print(f"  ✗ {n}")
 
 
-def headless_sync_friends():
+def headless_sync_friends() -> None:
     from . import auth, db, sync
 
     config = auth.load_config()

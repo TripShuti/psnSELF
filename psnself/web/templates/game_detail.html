@@ -18,7 +18,7 @@
 
 {% set gs = game_stats %}
 {% set total_sec = gs.total_seconds if gs and gs.total_seconds > 0 else 0 %}
-{% set is_manual = gs and gs.title_id is none and gs.total_seconds > 0 %}
+{% set is_manual = gs and (gs.title_id is none or gs.title_id == '') and gs.total_seconds > 0 %}
 
 <div class="term-card p-4 mt-4">
   <span class="term-card__title accent">Play Time</span>
@@ -93,7 +93,7 @@
           <td class="py-1 hidden sm:table-cell" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
           <td class="py-1 hidden sm:table-cell" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
           <td class="py-1 text-right whitespace-nowrap" style="color: var(--fg-dim);">
-            {{ t.earned_date_time[:10] if t.earned else '—' }}
+            {{ t.earned_date_time[:10] if t.earned_date_time else '—' }}
           </td>
         </tr>
         {% endfor %}
