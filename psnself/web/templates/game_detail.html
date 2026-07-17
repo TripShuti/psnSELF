@@ -72,16 +72,17 @@
   </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 mt-4">
+<div class="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-8 mt-4">
 
   <div class="term-card p-4">
     <span class="term-card__title">Trophies</span>
+  <div class="overflow-x-auto">
     <table class="term-table w-full text-sm mt-2">
       <thead>
         <tr>
           <th class="py-1">Name</th>
-          <th class="py-1">Type</th>
-          <th class="py-1">Rarity</th>
+          <th class="py-1 hidden sm:table-cell">Type</th>
+          <th class="py-1 hidden sm:table-cell">Rarity</th>
           <th class="py-1 text-right">Earned</th>
         </tr>
       </thead>
@@ -89,8 +90,8 @@
         {% for t in trophies %}
         <tr>
           <td class="py-1 pr-3">{{ t.trophy_name }}</td>
-          <td class="py-1" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
-          <td class="py-1" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
+          <td class="py-1 hidden sm:table-cell" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
+          <td class="py-1 hidden sm:table-cell" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
           <td class="py-1 text-right whitespace-nowrap" style="color: var(--fg-dim);">
             {{ t.earned_date_time[:10] if t.earned else '—' }}
           </td>
@@ -99,18 +100,20 @@
       </tbody>
     </table>
   </div>
+</div>
 
-  <div class="term-card p-4">
+<div class="term-card p-4 mt-4">
     <span class="term-card__title">Friends comparison</span>
+    <div class="overflow-x-auto">
     <table class="term-table w-full text-sm mt-2">
       <thead>
         <tr>
           <th class="py-1">Friend</th>
           <th class="py-1 text-right">Progress</th>
-          <th class="py-1 text-right" style="color: var(--plat); text-align: right !important;">P</th>
-          <th class="py-1 text-right" style="color: var(--gold); text-align: right !important;">G</th>
-          <th class="py-1 text-right" style="color: var(--silver); text-align: right !important;">S</th>
-          <th class="py-1 text-right" style="color: var(--bronze); text-align: right !important;">B</th>
+          <th class="py-1 text-right hidden sm:table-cell" style="color: var(--plat); text-align: right !important;">P</th>
+          <th class="py-1 text-right hidden sm:table-cell" style="color: var(--gold); text-align: right !important;">G</th>
+          <th class="py-1 text-right hidden sm:table-cell" style="color: var(--silver); text-align: right !important;">S</th>
+          <th class="py-1 text-right hidden sm:table-cell" style="color: var(--bronze); text-align: right !important;">B</th>
         </tr>
       </thead>
       <tbody>
@@ -118,10 +121,10 @@
         <tr>
           <td class="py-1">{{ f.online_id }}</td>
           <td class="py-1 text-right">{{ f.progress }}%</td>
-          <td class="py-1 text-right" style="color: var(--plat);">{{ f.earned_platinum|default(0, true) }}</td>
-          <td class="py-1 text-right" style="color: var(--gold);">{{ f.earned_gold|default(0, true) }}</td>
-          <td class="py-1 text-right" style="color: var(--silver);">{{ f.earned_silver|default(0, true) }}</td>
-          <td class="py-1 text-right" style="color: var(--bronze);">{{ f.earned_bronze|default(0, true) }}</td>
+          <td class="py-1 text-right hidden sm:table-cell" style="color: var(--plat);">{{ f.earned_platinum|default(0, true) }}</td>
+          <td class="py-1 text-right hidden sm:table-cell" style="color: var(--gold);">{{ f.earned_gold|default(0, true) }}</td>
+          <td class="py-1 text-right hidden sm:table-cell" style="color: var(--silver);">{{ f.earned_silver|default(0, true) }}</td>
+          <td class="py-1 text-right hidden sm:table-cell" style="color: var(--bronze);">{{ f.earned_bronze|default(0, true) }}</td>
         </tr>
         {% endfor %}
         {% if not friend_comparison %}
@@ -131,6 +134,7 @@
         {% endif %}
       </tbody>
     </table>
+    </div>
   </div>
 
 </div>

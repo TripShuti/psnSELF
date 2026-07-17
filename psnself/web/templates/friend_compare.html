@@ -13,7 +13,8 @@
 
 <div class="term-card p-4 mt-4">
   <span class="term-card__title">Game Comparison ({{ games|length }})</span>
-  <table class="term-table w-full text-sm mt-2">
+
+  <table class="hidden md:table term-table w-full text-sm mt-2">
     <thead>
       <tr>
         <th class="py-1">Game</th>
@@ -57,6 +58,35 @@
       {% endif %}
     </tbody>
   </table>
+
+  <div class="md:hidden space-y-3 mt-2">
+    {% for g in games %}
+    <div class="border p-3" style="border-color: var(--secondary);">
+      <div class="text-sm font-bold mb-2" style="color: var(--fg);">{{ g.title_name }}</div>
+      <div class="text-xs space-y-1">
+        <div style="color: var(--accent);">{{ online_id }}</div>
+        <div class="flex gap-2" style="color: var(--fg-dim);">
+          <span>Progress: <b>{{ g.my_progress }}%</b></span>
+          <span style="color: var(--plat);">P{{ g.my_plat }}</span>
+          <span style="color: var(--gold);">G{{ g.my_gold }}</span>
+          <span style="color: var(--silver);">S{{ g.my_silver }}</span>
+          <span style="color: var(--bronze);">B{{ g.my_bronze }}</span>
+        </div>
+        <div class="mt-1" style="color: var(--fg-dim);">{{ friend.online_id }}</div>
+        <div class="flex gap-2" style="color: var(--fg-dim);">
+          <span>Progress: <b>{{ g.friend_progress }}%</b></span>
+          <span style="color: var(--plat);">P{{ g.friend_plat }}</span>
+          <span style="color: var(--gold);">G{{ g.friend_gold }}</span>
+          <span style="color: var(--silver);">S{{ g.friend_silver }}</span>
+          <span style="color: var(--bronze);">B{{ g.friend_bronze }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if not games %}
+    <div class="py-4 text-center text-sm" style="color: var(--fg-dim);">No shared games found.</div>
+    {% endif %}
+  </div>
 </div>
 
 {% endblock %}

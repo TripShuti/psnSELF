@@ -2,7 +2,7 @@
 {% block title %}Dashboard · psnSELF{% endblock %}
 {% block content %}
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
 
   <!-- GAMES (own column, no row-span — that was causing the empty-gap bug) -->
   <div class="flex flex-col gap-8">
@@ -37,13 +37,13 @@
           oninput="filterGames(this.value)">
       </div>
 
-      <div class="max-h-[640px] overflow-y-auto">
+      <div class="max-h-[640px] overflow-auto">
           <table class="term-table w-full text-sm">
             <thead>
               <tr>
                 <th class="py-1 px-2 sortable" data-sort="name" onclick="sortGames('name')"
                     style="cursor: pointer;">Name</th>
-                <th class="py-1 px-2 text-center sortable" data-sort="platform" onclick="sortGames('platform')"
+                <th class="py-1 px-2 text-center sortable hidden sm:table-cell" data-sort="platform" onclick="sortGames('platform')"
                     style="cursor: pointer;">Platform</th>
                 <th class="py-1 px-2 text-right sortable" data-sort="progress" onclick="sortGames('progress')"
                     style="cursor: pointer;">Progress</th>
@@ -66,7 +66,7 @@
                   {{ g.title_name }}
                 </a>
               </td>
-              <td class="py-1 px-2 text-center" style="color: var(--fg-dim);">{{ g.platform }}</td>
+              <td class="py-1 px-2 text-center hidden sm:table-cell" style="color: var(--fg-dim);">{{ g.platform }}</td>
               <td class="py-1 px-2 text-right">{{ g.progress }}%</td>
               <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
                 {% if g.play_seconds > 0 %}
@@ -116,8 +116,8 @@
             <tr>
               <th class="py-1 px-2">Game</th>
               <th class="py-1 px-2">Trophy</th>
-              <th class="py-1 px-2">Type</th>
-              <th class="py-1 px-2">Rarity</th>
+              <th class="py-1 px-2 hidden sm:table-cell">Type</th>
+              <th class="py-1 px-2 hidden sm:table-cell">Rarity</th>
               <th class="py-1 px-2 text-right">Date</th>
             </tr>
           </thead>
@@ -126,8 +126,8 @@
             <tr>
               <td class="py-1 px-2" style="color: var(--fg-dim);">{{ t.title_name }}</td>
               <td class="py-1 px-2">{{ t.trophy_name }}</td>
-              <td class="py-1 px-2" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
-              <td class="py-1 px-2" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
+              <td class="py-1 px-2 hidden sm:table-cell" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
+              <td class="py-1 px-2 hidden sm:table-cell" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
               <td class="py-1 px-2 text-right" style="color: var(--fg-dim);">
                 {{ t.earned_date_time|fmt_date if t.earned_date_time else '–' }}
               </td>

@@ -16,23 +16,24 @@
     </button>
   </div>
   <div id="friends-sync-msg" class="text-xs mb-2"></div>
+  <div class="overflow-x-auto">
   <table class="term-table w-full text-sm">
     <thead>
       <tr>
-        <th class="py-1">#</th>
+        <th class="py-1 hidden sm:table-cell">#</th>
         <th class="py-1">Online ID</th>
-        <th class="py-1 text-right">Level</th>
-        <th class="py-1 text-right" style="color: var(--plat);">P</th>
-        <th class="py-1 text-right" style="color: var(--gold);">G</th>
-        <th class="py-1 text-right" style="color: var(--silver);">S</th>
-        <th class="py-1 text-right" style="color: var(--bronze);">B</th>
-        <th class="py-1 text-right">Total</th>
+        <th class="py-1 text-right hidden sm:table-cell">Level</th>
+        <th class="py-1 text-right hidden sm:table-cell" style="color: var(--plat);">P</th>
+        <th class="py-1 text-right hidden sm:table-cell" style="color: var(--gold);">G</th>
+        <th class="py-1 text-right hidden sm:table-cell" style="color: var(--silver);">S</th>
+        <th class="py-1 text-right hidden sm:table-cell" style="color: var(--bronze);">B</th>
+        <th class="py-1 text-right hidden sm:table-cell">Total</th>
       </tr>
     </thead>
       <tbody>
         {% for f in friends %}
         <tr>
-          <td class="py-1" style="color: var(--fg-dim);">{{ loop.index }}</td>
+          <td class="py-1 hidden sm:table-cell" style="color: var(--fg-dim);">{{ loop.index }}</td>
           <td class="py-1">
             {% if f.is_private %}
               {{ f.online_id }}
@@ -41,14 +42,15 @@
             {% endif %}
           </td>
           {% if f.is_private %}
-          <td colspan="6" class="py-1" style="color: var(--fg-dim);">🔒 private profile</td>
+          <td colspan="7" class="py-1 hidden sm:table-cell" style="color: var(--fg-dim);">🔒 private profile</td>
+          <td colspan="1" class="py-1 sm:hidden" style="color: var(--fg-dim);">🔒</td>
           {% else %}
-          <td class="py-1 text-right">{{ f.trophy_level }}</td>
-          <td class="py-1 text-right">{{ f.platinum }}</td>
-          <td class="py-1 text-right">{{ f.gold }}</td>
-          <td class="py-1 text-right">{{ f.silver }}</td>
-          <td class="py-1 text-right">{{ f.bronze }}</td>
-          <td class="py-1 text-right font-bold">{{ f.total }}</td>
+          <td class="py-1 text-right hidden sm:table-cell">{{ f.trophy_level }}</td>
+          <td class="py-1 text-right hidden sm:table-cell">{{ f.platinum }}</td>
+          <td class="py-1 text-right hidden sm:table-cell">{{ f.gold }}</td>
+          <td class="py-1 text-right hidden sm:table-cell">{{ f.silver }}</td>
+          <td class="py-1 text-right hidden sm:table-cell">{{ f.bronze }}</td>
+          <td class="py-1 text-right hidden sm:table-cell font-bold">{{ f.total }}</td>
           {% endif %}
         </tr>
         {% endfor %}
@@ -59,6 +61,7 @@
       {% endif %}
     </tbody>
   </table>
+  </div>
 </div>
 
 {% endblock %}

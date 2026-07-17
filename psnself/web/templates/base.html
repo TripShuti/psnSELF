@@ -80,11 +80,11 @@
 </head>
 <body class="min-h-screen">
   <header class="border-b" style="border-color: var(--secondary);">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <a href="/" class="text-lg font-extrabold tracking-wide" style="color: var(--fg);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-2">
+      <a href="/" class="text-base sm:text-lg font-extrabold tracking-wide whitespace-nowrap" style="color: var(--fg);">
         psn<span style="color: var(--accent);">SELF</span><span class="cursor"></span>
       </a>
-      <nav class="flex gap-6 text-sm uppercase tracking-wide items-center">
+      <nav class="flex flex-wrap gap-x-4 gap-y-1 sm:gap-6 text-xs sm:text-sm uppercase tracking-wide items-center justify-end">
         <a href="/" class="nav-link {% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
         <a href="/friends" class="nav-link {% if active == 'friends' %}active{% endif %}">Friends</a>
         <a href="/auth" class="nav-link {% if active == 'auth' %}active{% endif %}" style="color: var(--fg-dim);">
@@ -98,11 +98,11 @@
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-6 py-8">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="max-w-7xl mx-auto px-6 py-6 text-xs flex gap-2" style="color: var(--fg-dim);">
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 py-6 text-xs flex gap-2 flex-wrap" style="color: var(--fg-dim);">
     <span>Forked from</span>
     <a href="https://github.com/TripShuti/psnTUI" target="_blank" style="color: var(--primary);">psnTUI</a>
     <span>·</span>
