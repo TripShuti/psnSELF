@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 
 from psnself import auth, db
 from psnself.web.routes.auth import router as auth_router
@@ -22,6 +23,9 @@ app.include_router(dashboard_router)
 app.include_router(auth_router)
 app.include_router(games_router)
 app.include_router(friends_router)
+
+_HERE = Path(__file__).parent
+app.mount("/static", StaticFiles(directory=str(_HERE / "static")), name="static")
 
 
 @app.get("/favicon.ico")

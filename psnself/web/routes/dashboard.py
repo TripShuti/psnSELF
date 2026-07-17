@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import re
+import threading
+import time
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from psnself import auth, db
-from psnself.web.scheduler import _run_friends_sync, _run_trophy_sync
+from psnself import auth, db, sync
 from psnself.web.services.friend_service import FriendService
 from psnself.web.services.game_service import GameService
 from psnself.web.services.stats_service import StatsService
@@ -17,6 +19,32 @@ from psnself.web.utils import RARITY_COLORS, RARITY_LABELS, _auth_context, _mont
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 router = APIRouter()
+
+_sync_status: dict[str, Any] = {}
+_sync_lock = threading.Lock()
+
+
+def _bg_sync(npsso: str, kind: str) -> None:
+    try:
+        if kind == "trophy":
+            result = sync.sync_trophies(npsso)
+        else:
+            result = sync.fetch_friends_leaderboard(npsso)
+        with _sync_lock:
+            _sync_status[kind] = {"running": False, "result": result, "error": None, "time": time.time()}
+    except Exception as e:
+        with _sync_lock:
+            _sync_status[kind] = {"running": False, "result": None, "error": str(e), "time": time.time()}
+
+
+def _start_sync(kind: str, npsso: str) -> str | None:
+    with _sync_lock:
+        st = _sync_status.get(kind, {})
+        if st.get("running"):
+            return "already running"
+        _sync_status[kind] = {"running": True, "result": None, "error": None, "time": time.time()}
+    threading.Thread(target=_bg_sync, args=(npsso, kind), daemon=True).start()
+    return None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -95,13 +123,37 @@ def trigger_sync(request: Request) -> HTMLResponse:
             '<span style="color: var(--err);">Not authenticated</span>',
             status_code=400,
         )
-    result = _run_trophy_sync(config["npsso"])
-    if result["status"] == "error":
-        return HTMLResponse(f'<span style="color: var(--err);">Failed: {result["error"]}</span>')
-    msg = f'✓ Completed: +{result["trophies_added"]} trophies, {result["games_updated"]} games'
-    if result.get("warnings"):
-        msg += f'<br><span style="color: var(--fg-dim);">⚠ {len(result["warnings"])} warnings (no play time data)</span>'
-    return HTMLResponse(f'<span style="color: var(--accent);">{msg}</span>')
+    err = _start_sync("trophy", config["npsso"])
+    if err:
+        return HTMLResponse(f'<span style="color: var(--fg-dim);">⏳ Sync already in progress</span>')
+    return HTMLResponse(
+        '<span style="color: var(--accent);">Sync started…</span>'
+        '<span hx-get="/sync-poll" hx-trigger="every 2s" hx-target="#sync-msg" hx-swap="innerHTML"></span>'
+    )
+
+
+@router.get("/sync-poll")
+def sync_poll(request: Request) -> HTMLResponse:
+    with _sync_lock:
+        st = _sync_status.get("trophy", {})
+        if st.get("running"):
+            return HTMLResponse(
+                '<span style="color: var(--fg-dim);">⏳ Syncing…</span>'
+                '<span hx-get="/sync-poll" hx-trigger="every 2s" hx-target="#sync-msg" hx-swap="innerHTML"></span>'
+            )
+        result = st.get("result")
+        error = st.get("error")
+        _sync_status.pop("trophy", None)
+    if error:
+        return HTMLResponse(f'<span style="color: var(--err);">Failed: {error}</span>')
+    if result:
+        if result.get("status") == "error":
+            return HTMLResponse(f'<span style="color: var(--err);">Failed: {result["error"]}</span>')
+        msg = f'✓ Completed: +{result["trophies_added"]} trophies, {result["games_updated"]} games'
+        if result.get("warnings"):
+            msg += f'<br><span style="color: var(--fg-dim);">⚠ {len(result["warnings"])} warnings (no play time data)</span>'
+        return HTMLResponse(f'<span style="color: var(--accent);">{msg}</span>')
+    return HTMLResponse('<span style="color: var(--fg-dim);">Waiting…</span>')
 
 
 @router.post("/sync-friends")
@@ -112,9 +164,33 @@ def trigger_sync_friends(request: Request) -> HTMLResponse:
             '<span style="color: var(--err);">Not authenticated</span>',
             status_code=400,
         )
-    result = _run_friends_sync(config["npsso"])
+    err = _start_sync("friends", config["npsso"])
+    if err:
+        return HTMLResponse(f'<span style="color: var(--fg-dim);">⏳ Sync already in progress</span>')
     return HTMLResponse(
-        f'<span style="color: var(--accent);">'
-        f'✓ Completed: {result["processed"]} friends, {result["games_stored"]} games'
-        f'</span>'
+        '<span style="color: var(--accent);">Syncing friends…</span>'
+        '<span hx-get="/sync-friends-poll" hx-trigger="every 2s" hx-target="#friends-sync-msg" hx-swap="innerHTML"></span>'
     )
+
+
+@router.get("/sync-friends-poll")
+def sync_friends_poll(request: Request) -> HTMLResponse:
+    with _sync_lock:
+        st = _sync_status.get("friends", {})
+        if st.get("running"):
+            return HTMLResponse(
+                '<span style="color: var(--fg-dim);">⏳ Syncing…</span>'
+                '<span hx-get="/sync-friends-poll" hx-trigger="every 2s" hx-target="#friends-sync-msg" hx-swap="innerHTML"></span>'
+            )
+        result = st.get("result")
+        error = st.get("error")
+        _sync_status.pop("friends", None)
+    if error:
+        return HTMLResponse(f'<span style="color: var(--err);">Failed: {error}</span>')
+    if result:
+        return HTMLResponse(
+            f'<span style="color: var(--accent);">'
+            f'✓ Completed: {result["processed"]} friends, {result["games_stored"]} games'
+            f'</span>'
+        )
+    return HTMLResponse('<span style="color: var(--fg-dim);">Waiting…</span>')

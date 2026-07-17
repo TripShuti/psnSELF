@@ -35,7 +35,7 @@ def get_conn() -> sqlite3.Connection:
             ).fetchone()
             if path_match and path_match[2] == str(DB_PATH):
                 return conn
-        except (sqlite3.ProgrammingError, sqlite3.OperationalError):
+        except sqlite3.DatabaseError:
             try:
                 conn.close()
             except sqlite3.Error:
