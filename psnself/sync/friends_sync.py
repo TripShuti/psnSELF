@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any
@@ -9,22 +10,27 @@ from psnawp_api.core.psnawp_exceptions import PSNAWPForbiddenError
 
 from .. import auth, db
 from .. import db_friends
-from ..sync import _sync_lock
+from ..sync import sync_lock
+from ..log import get_logger
 from .extractor import _DEFAULT_RATE_LIMIT, _ensure_request_timeout, ProgressCB
+
+logger = get_logger("friends_sync")
 
 
 def fetch_friends_leaderboard(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
-    with _sync_lock:
+    with sync_lock:
         return _do_fetch_friends(npsso, progress_callback)
 
 
 def _do_fetch_friends(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
+    _t0 = time.time()
     _ensure_request_timeout()
     conn = db.get_conn()
     try:
         psnawp = PSNAWP(npsso_cookie=npsso, rate_limit=_DEFAULT_RATE_LIMIT)
         client = psnawp.me()
         friends = list(client.friends_list(limit=1000))
+        logger.info("Found %d friends", len(friends))
         now = datetime.now(timezone.utc).isoformat()
         processed = 0
         private = 0
@@ -79,7 +85,7 @@ def _do_fetch_friends(npsso: str, progress_callback: ProgressCB = None) -> dict[
                 })
                 private += 1
             except Exception as e:
-                print(f"[friends] Error processing {friend.online_id}: {e}")
+                logger.warning("Error processing %s: %s", friend.online_id, e)
                 errors += 1
             if progress_callback:
                 progress_callback(i + 1, total, friend.online_id)
@@ -89,6 +95,11 @@ def _do_fetch_friends(npsso: str, progress_callback: ProgressCB = None) -> dict[
     except Exception:
         conn.rollback()
         raise
+    _elapsed = time.time() - _t0
+    logger.info(
+        "Friends sync done: %d processed, %d private, %d errors (took %.1fs)",
+        processed, private, errors, _elapsed,
+    )
     return {
         "processed": processed,
         "private": private,
@@ -121,4 +132,4 @@ def _sync_self(conn: sqlite3.Connection, client, now: str) -> None:
         if changed:
             auth.save_config(cfg)
     except Exception as e:
-        print(f"[friends] Error storing self: {e}")
+        logger.error("Error storing self data: %s", e)

@@ -71,7 +71,7 @@ def _auth_context() -> dict:
     return {"authenticated": False, "online_id": None, "account_id": None}
 
 
-def _fmt_remaining(interval_hours: int, last_sync: float) -> str:
+def _fmt_remaining(interval_hours: int | float, last_sync: float) -> str:
     if last_sync == 0:
         return "not yet"
     elapsed = time.time() - last_sync

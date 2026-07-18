@@ -4,19 +4,30 @@ import hashlib
 from datetime import datetime
 from threading import Lock
 
-from .. import db
+from .. import auth, db
+from ..log import get_logger
 from .extractor import _normalize_name
 
-_sync_lock = Lock()
+__all__ = [
+    "sync_lock",
+    "sync_trophies",
+    "fetch_friends_leaderboard",
+    "_normalize_name",
+    "write_sync_log",
+]
 
-from .trophy_sync import sync_trophies
-from .friends_sync import fetch_friends_leaderboard
+sync_lock = Lock()
+
+from .friends_sync import fetch_friends_leaderboard  # noqa: E402
+from .trophy_sync import sync_trophies  # noqa: E402
+
+logger = get_logger("sync")
 
 
 def write_sync_log(warnings: list[str]) -> None:
     if not warnings:
         return
-    log_path = db.DB_PATH.parent / "sync.log"
+    log_path = (db.DB_PATH.parent if db.DB_PATH else auth.get_db_path().parent) / "sync.log"
     hash_path = log_path.with_suffix(".log.hash")
     new_hash = hashlib.sha256("".join(warnings).encode()).hexdigest()
     try:
@@ -25,6 +36,8 @@ def write_sync_log(warnings: list[str]) -> None:
             return
     except (OSError, FileNotFoundError):
         pass
+    for w in warnings:
+        logger.warning("Sync warning: %s", w)
     now = datetime.now().isoformat(timespec="seconds")
     lines = [f"[{now}] Sync warnings ({len(warnings)}):"]
     for w in warnings:

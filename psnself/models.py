@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-Optional = Optional  # keep for runtime -- no-op alias
-
 
 @dataclass
 class Game:

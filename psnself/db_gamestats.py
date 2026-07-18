@@ -125,7 +125,6 @@ def set_manual_play_time(conn: sqlite3.Connection,
             play_count = 0
     """, (np_comm_id, total_seconds))
     if delta > 0:
-        from datetime import date
         today = date.today().isoformat()
         conn.execute("""
             INSERT INTO play_delta_history (np_communication_id, date, delta_seconds)

@@ -55,7 +55,7 @@ class StatsService:
             "month": fmt_hms(db_gamestats.get_total_play_delta(self.conn, month_start, tomorrow)),
         }
 
-    def get_daily_counts(self, date_str: str) -> list[dict]:
+    def get_daily_counts(self, date_str: str) -> list[Trophy]:
         return [Trophy.from_row(r) for r in db.get_trophies_by_date(self.conn, date_str)]
 
     def get_calendar_data(self, year: int, month: int) -> list:

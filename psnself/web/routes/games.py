@@ -43,7 +43,7 @@ async def set_game_time(request: Request, np_comm_id: str) -> HTMLResponse:
     if not config.get("npsso"):
         return HTMLResponse('<span style="color: var(--err);">Not authenticated</span>', status_code=400)
     form = await request.form()
-    raw = (form.get("hours") or "").strip()
+    raw = str(form.get("hours") or "").strip()
     sec = _parse_play_time(raw)
     if sec is None or sec <= 0:
         return HTMLResponse('<span style="color: var(--err);">Invalid format. Use e.g. 25.5 or 2h 30m</span>')

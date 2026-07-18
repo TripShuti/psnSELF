@@ -6,8 +6,8 @@ import time
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from psnself import auth
-from psnself.web.scheduler import _load_schedule, _run_friends_sync, _run_trophy_sync, _save_schedule
+from psnself import auth, sync
+from psnself.web.scheduler import _load_schedule, _save_schedule
 from psnself.web.template import templates
 from psnself.web.utils import _auth_context, _fmt_remaining
 
@@ -31,7 +31,7 @@ def auth_page(request: Request) -> HTMLResponse:
 @router.post("/auth")
 async def auth_submit(request: Request) -> HTMLResponse:
     form = await request.form()
-    npsso = (form.get("npsso") or "").strip()
+    npsso = str(form.get("npsso") or "").strip()
 
     if len(npsso) != 64:
         return HTMLResponse('<span style="color: var(--err);">NPSSO must be exactly 64 characters</span>')
@@ -46,9 +46,9 @@ async def auth_submit(request: Request) -> HTMLResponse:
     auth.save_config(cfg)
 
     def _run_both():
-        _run_trophy_sync(npsso)
+        sync.sync_trophies(npsso)
         time.sleep(30)
-        _run_friends_sync(npsso)
+        sync.fetch_friends_leaderboard(npsso)
     threading.Thread(target=_run_both, daemon=True).start()
 
     return HTMLResponse(
@@ -60,8 +60,8 @@ async def auth_submit(request: Request) -> HTMLResponse:
 @router.post("/auth/schedule")
 async def auth_schedule(request: Request) -> HTMLResponse:
     form = await request.form()
-    ti = form.get("trophy_interval", "0").strip()
-    fi = form.get("friends_interval", "0").strip()
+    ti = str(form.get("trophy_interval", "0")).strip()
+    fi = str(form.get("friends_interval", "0")).strip()
     try:
         ti = max(0, int(ti))
         fi = max(0, int(fi))

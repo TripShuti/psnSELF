@@ -8,7 +8,8 @@ from psnawp_api import PSNAWP
 
 from .. import db
 from .. import db_gamestats
-from ..sync import _sync_lock
+from ..sync import sync_lock
+from ..log import get_logger
 from .extractor import (
     _DEFAULT_RATE_LIMIT,
     _ensure_request_timeout,
@@ -21,9 +22,11 @@ from .extractor import (
     ProgressCB,
 )
 
+logger = get_logger("trophy_sync")
+
 
 def sync_trophies(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
-    with _sync_lock:
+    with sync_lock:
         return _do_sync(npsso, progress_callback)
 
 
@@ -35,6 +38,11 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
         "error": None,
         "warnings": [],
     }
+
+    conn: sqlite3.Connection | None = None
+    sync_id = 0
+    last_sync = None
+    last_sync_utc = None
 
     for attempt in range(3):
         try:
@@ -65,6 +73,11 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
             result["error"] = f"Database locked after retries: {e}"
             return result
 
+    if conn is None:
+        result["status"] = "error"
+        result["error"] = "Database connection failed after retries"
+        return result
+
     try:
         _ensure_request_timeout()
         psnawp = PSNAWP(npsso_cookie=npsso, rate_limit=_DEFAULT_RATE_LIMIT)
@@ -76,7 +89,10 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
         conn.commit()
         return result
 
+    logger.info("Starting trophy sync for %s", client.online_id)
+    _t0 = time.time()
     all_titles = list(client.trophy_titles(limit=None))
+    logger.info("Found %d titles on account", len(all_titles))
 
     stats_by_id: dict[str, Any] = {}
     stats_by_name: dict[str, Any] = {}
@@ -93,7 +109,7 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
 
     for idx, title in enumerate(all_titles):
         if progress_callback:
-            progress_callback(idx, len(all_titles), title.title_name)
+            progress_callback(idx, len(all_titles), title.title_name or "")
 
         np_comm_id = title.np_communication_id
         if not np_comm_id:
@@ -107,6 +123,7 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
             needs_update = ts > last_sync_utc
 
         if needs_update:
+            logger.debug("Processing %s (%s)", title.title_name, np_comm_id)
             platform = _get_platform(title)
             try:
                 trophies = list(
@@ -144,9 +161,9 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
             else:
                 result["trophies_added"] += sum(1 for t in trophy_dicts if t["earned"])
 
-        ts_stats = stats_by_id.get(title.np_title_id)
+        ts_stats = stats_by_id.get(title.np_title_id or "")
         if not ts_stats:
-            ts_stats = stats_by_name.get(_normalize_name(title.title_name))
+            ts_stats = stats_by_name.get(_normalize_name(title.title_name or ""))
         if ts_stats:
             if ts_stats.title_id and ts_stats.title_id != title.np_title_id:
                 conn.execute(
@@ -179,6 +196,7 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
                     f"— not in PSN gamelist"
                 )
 
+    _elapsed = time.time() - _t0
     try:
         db.finish_sync(
             conn, sync_id, result["status"],
@@ -190,4 +208,9 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
         result["status"] = "error"
         result["error"] = f"Failed to finalise sync: {e}"
 
+    logger.info(
+        "Sync done: +%d trophies, %d games (took %.1fs, %d warnings)",
+        result["trophies_added"], result["games_updated"],
+        _elapsed, len(result.get("warnings", [])),
+    )
     return result

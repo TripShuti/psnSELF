@@ -4,13 +4,12 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
+from psnawp_api.core.request_builder import RequestBuilder
+from psnawp_api.models.trophies import PlatformType
 from pyrate_limiter import Rate
 
 ProgressCB = Optional[Callable[[int, int, str], None]]
 _DEFAULT_RATE_LIMIT = Rate(1, 3)
-
-from psnawp_api.core.request_builder import RequestBuilder
-from psnawp_api.models.trophies import PlatformType
 
 REQUEST_TIMEOUT = 60
 _request_patch_applied = False

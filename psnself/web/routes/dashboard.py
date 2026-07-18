@@ -125,7 +125,7 @@ def trigger_sync(request: Request) -> HTMLResponse:
         )
     err = _start_sync("trophy", config["npsso"])
     if err:
-        return HTMLResponse(f'<span style="color: var(--fg-dim);">⏳ Sync already in progress</span>')
+        return HTMLResponse('<span style="color: var(--fg-dim);">⏳ Sync already in progress</span>')
     return HTMLResponse(
         '<span style="color: var(--accent);">Sync started…</span>'
         '<span hx-get="/sync-poll" hx-trigger="every 2s" hx-target="#sync-msg" hx-swap="innerHTML"></span>'
@@ -166,7 +166,7 @@ def trigger_sync_friends(request: Request) -> HTMLResponse:
         )
     err = _start_sync("friends", config["npsso"])
     if err:
-        return HTMLResponse(f'<span style="color: var(--fg-dim);">⏳ Sync already in progress</span>')
+        return HTMLResponse('<span style="color: var(--fg-dim);">⏳ Sync already in progress</span>')
     return HTMLResponse(
         '<span style="color: var(--accent);">Syncing friends…</span>'
         '<span hx-get="/sync-friends-poll" hx-trigger="every 2s" hx-target="#friends-sync-msg" hx-swap="innerHTML"></span>'
