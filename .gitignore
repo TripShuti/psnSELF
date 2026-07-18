@@ -10,3 +10,5 @@ config.json
 schedule.json
 *.db
 sync.log
+.pytest_cache/
+.ruff_cache/
