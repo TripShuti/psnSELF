@@ -46,10 +46,15 @@ def _check_and_sync(npsso: str, key: str, interval_hours: int | float,
             label, interval_hours,
             time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last)) if last else "never",
         )
-        result = sync_fn(npsso)
-        if result.get("status") != "error":
-            _save_schedule({key: time.time()})
-            logger.info("%s sync saved at %s", label.capitalize(), key)
+
+    result = sync_fn(npsso)
+
+    if result.get("status") != "error":
+        with sync_lock:
+            fresh = _load_schedule()
+            if time.time() - fresh.get(key, 0) >= interval_hours * 3600:
+                _save_schedule({key: time.time()})
+                logger.info("%s sync saved at %s", label.capitalize(), key)
 
 
 def _scheduler_loop() -> None:
