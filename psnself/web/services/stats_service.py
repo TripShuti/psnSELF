@@ -73,6 +73,10 @@ class StatsService:
             })
         return cells
 
+    def get_range_play_details(self, since: str, until: str) -> list[dict]:
+        raw = db_gamestats.get_play_time_detail_by_range(self.conn, since, until)
+        return [{"title_name": r["title_name"], "label": fmt_hms(r["delta_seconds"])} for r in raw]
+
     def get_play_day_details(self, date_str: str) -> list[dict]:
         raw = db_gamestats.get_daily_play_details(self.conn, date_str)
         return [{"title_name": r["title_name"], "label": fmt_hms(r["delta_seconds"])} for r in raw]

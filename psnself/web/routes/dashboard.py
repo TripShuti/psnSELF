@@ -95,11 +95,13 @@ def partial_calendar(request: Request, year: int, month: int) -> HTMLResponse:
     conn = db.get_conn()
     ss = StatsService(conn)
     cells = ss.get_calendar_data(year, month)
+    month_total = sum(c["seconds"] for c in cells if c is not None)
     py, pm = _prev_month(year, month)
     ny, nm = _next_month(year, month)
     return templates.TemplateResponse(request, "partials/calendar.html", {
         "cells": cells, "label": _month_label(year, month),
         "prev_year": py, "prev_month": pm, "next_year": ny, "next_month": nm,
+        "month_total": month_total,
     })
 
 
@@ -112,6 +114,18 @@ def partial_play_day(request: Request, date_str: str) -> HTMLResponse:
     details = ss.get_play_day_details(date_str)
     return templates.TemplateResponse(request, "partials/calendar_day_detail.html", {
         "date_str": date_str, "details": details,
+    })
+
+
+@router.get("/partials/playrange/{since}/{until}", response_class=HTMLResponse)
+def partial_play_range(request: Request, since: str, until: str) -> HTMLResponse:
+    if not _DATE_RE.match(since) or not _DATE_RE.match(until):
+        return HTMLResponse('<span style="color: var(--err);">Invalid date</span>', status_code=400)
+    conn = db.get_conn()
+    ss = StatsService(conn)
+    details = ss.get_range_play_details(since, until)
+    return templates.TemplateResponse(request, "partials/calendar_day_detail.html", {
+        "date_str": f"{since} – {until}", "details": details,
     })
 
 

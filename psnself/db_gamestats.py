@@ -96,6 +96,18 @@ def get_daily_play_time(conn: sqlite3.Connection,
     return {r["date"]: r["total"] for r in rows}
 
 
+def get_play_time_detail_by_range(conn: sqlite3.Connection,
+                                   since: str, until: str) -> list[sqlite3.Row]:
+    return conn.execute("""
+        SELECT g.title_name, SUM(pdh.delta_seconds) as delta_seconds
+        FROM play_delta_history pdh
+        JOIN games g ON g.np_communication_id = pdh.np_communication_id
+        WHERE pdh.date >= ? AND pdh.date <= ? AND pdh.delta_seconds > 0
+        GROUP BY g.title_name
+        ORDER BY delta_seconds DESC
+    """, (since, until)).fetchall()
+
+
 def get_daily_play_details(conn: sqlite3.Connection,
                            date_str: str) -> list[dict]:
     return conn.execute("""

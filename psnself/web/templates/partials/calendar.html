@@ -14,7 +14,9 @@
     {% if cell is none %}
     <div class="aspect-square"></div>
     {% else %}
-    <div class="aspect-square flex flex-col items-center justify-center text-xs cursor-pointer border"
+    <div class="aspect-square cal-cell flex flex-col items-center justify-center text-xs cursor-pointer border"
+         data-date="{{ cell.date }}"
+         data-seconds="{{ cell.seconds }}"
          style="border-color: var(--surface); {% if cell.seconds %}background: var(--surface);{% endif %}"
          hx-get="/partials/playday/{{ cell.date }}"
          hx-target="#calendar-day-detail"
@@ -27,6 +29,17 @@
     {% endif %}
   {% endfor %}
 </div>
+<div class="mt-3 flex justify-between text-sm border-t pt-2"
+     style="border-color: var(--surface); color: var(--fg-dim);">
+  <span>Total for {{ label }}:</span>
+  <span style="color: var(--accent);">
+    {% set th = month_total // 3600 %}{% set tm = (month_total % 3600) // 60 %}
+    {{ th }}h {{ "%02d" % tm }}m
+  </span>
+</div>
+
+<div id="calendar-selection-total" class="mt-2 text-sm hidden" style="color: var(--accent);"></div>
+
 <div id="calendar-day-detail" class="mt-3 text-sm" style="color: var(--fg-dim);">
   Click a day to see what you played.
 </div>

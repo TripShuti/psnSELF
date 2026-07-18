@@ -235,6 +235,10 @@
   </div>
 </div>
 
+<style>
+.cal-cell.selected { border-color: var(--accent) !important; background: rgba(0,200,160,0.15) !important; }
+</style>
+
 <!-- CALENDAR MODAL -->
 <div id="calendar-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
      style="background: rgba(0,0,0,0.7);"
@@ -341,6 +345,87 @@ function sortGames(by) {
 }
 
 sortGames('updated');
+
+/* ─── Calendar drag selection ─── */
+let _calStartCell = null;
+let _calLastCell = null;
+let _calSelecting = false;
+let _calDragged = false;
+
+document.addEventListener('mousedown', (e) => {
+  const cell = e.target.closest('.cal-cell');
+  const modal = document.getElementById('calendar-modal');
+  if (!cell || !modal || modal.classList.contains('hidden')) return;
+  _calStartCell = cell;
+  _calLastCell = cell;
+  _calSelecting = true;
+  _calDragged = false;
+  _clearCalSelection();
+  cell.classList.add('selected');
+  document.getElementById('calendar-selection-total')?.classList.add('hidden');
+  e.preventDefault();
+});
+
+document.addEventListener('mouseover', (e) => {
+  if (!_calSelecting) return;
+  if (!_calDragged && e.target.closest('.cal-cell')) _calDragged = true;
+  const cell = e.target.closest('.cal-cell');
+  const modal = document.getElementById('calendar-modal');
+  if (!cell || !modal || modal.classList.contains('hidden') || cell === _calLastCell) return;
+  _calLastCell = cell;
+  const all = Array.from(document.querySelectorAll('#calendar-modal-content .cal-cell'));
+  const si = all.indexOf(_calStartCell);
+  const ei = all.indexOf(cell);
+  if (si === -1 || ei === -1) return;
+  const lo = Math.min(si, ei), hi = Math.max(si, ei);
+  _clearCalSelection();
+  for (let i = lo; i <= hi; i++) all[i].classList.add('selected');
+  _updateCalTotal();
+});
+
+document.addEventListener('mouseup', () => {
+  _calSelecting = false;
+  if (_calDragged) {
+    const sel = document.querySelectorAll('#calendar-modal-content .cal-cell.selected');
+    if (sel.length >= 2) {
+      const dates = Array.from(sel).map(c => c.dataset.date).sort();
+      htmx.ajax('GET', `/partials/playrange/${dates[0]}/${dates[dates.length-1]}`, '#calendar-day-detail');
+    }
+    _calDragged = false;
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (_calDragged) {
+    _calDragged = false;
+    if (e.target.closest('.cal-cell')) { e.stopPropagation(); e.preventDefault(); }
+  }
+}, true);
+
+function _clearCalSelection() {
+  document.querySelectorAll('#calendar-modal-content .cal-cell.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function _updateCalTotal() {
+  const sel = document.querySelectorAll('#calendar-modal-content .cal-cell.selected');
+  const el = document.getElementById('calendar-selection-total');
+  if (!el) return;
+  if (sel.length < 2) { el.classList.add('hidden'); return; }
+  let s = 0;
+  sel.forEach(c => { s += parseInt(c.dataset.seconds || '0', 10); });
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  el.textContent = `Selected: ${sel.length} days · ${h}h ${String(m).padStart(2, '0')}m`;
+  el.classList.remove('hidden');
+}
+
+// Clear selection when modal closes
+new MutationObserver(() => {
+  if (document.getElementById('calendar-modal')?.classList.contains('hidden')) {
+    _clearCalSelection();
+    const el = document.getElementById('calendar-selection-total');
+    if (el) el.classList.add('hidden');
+  }
+}).observe(document.getElementById('calendar-modal'), { attributes: true, attributeFilter: ['class'] });
 </script>
 
 {% endblock %}
