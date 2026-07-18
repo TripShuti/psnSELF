@@ -38,7 +38,9 @@ def _do_fetch_friends(npsso: str, progress_callback: ProgressCB = None) -> dict[
         games_stored = 0
 
         total = len(friends)
+        active_ids: set[str] = set()
         for i, friend in enumerate(friends):
+            active_ids.add(friend.account_id)
             try:
                 summary = friend.trophy_summary()
                 db_friends.upsert_friend(conn, {
@@ -91,6 +93,10 @@ def _do_fetch_friends(npsso: str, progress_callback: ProgressCB = None) -> dict[
                 progress_callback(i + 1, total, friend.online_id)
 
         _sync_self(conn, client, now)
+        active_ids.add(client.account_id)
+        removed = db_friends.delete_stale_friends(conn, active_ids, client.account_id)
+        if removed:
+            logger.info("Removed %d stale friends from local DB", removed)
         conn.commit()
     except Exception:
         conn.rollback()

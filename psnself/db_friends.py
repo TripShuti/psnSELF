@@ -132,3 +132,24 @@ def get_friends_fetched_at(conn: sqlite3.Connection) -> str | None:
         "SELECT MAX(fetched_at) as fetched_at FROM friends_cache"
     ).fetchone()
     return row["fetched_at"] if row and row["fetched_at"] else None
+
+
+def delete_stale_friends(conn: sqlite3.Connection,
+                          active_ids: set[str],
+                          self_account_id: str) -> int:
+    if not active_ids:
+        return 0
+    placeholders = ",".join("?" for _ in active_ids)
+    params = (*active_ids, self_account_id)
+    conn.execute(f"""
+        DELETE FROM friend_game_cache
+        WHERE account_id NOT IN ({placeholders})
+          AND account_id != ?
+    """, params)
+    cur = conn.execute(f"""
+        DELETE FROM friends_cache
+        WHERE account_id NOT IN ({placeholders})
+          AND account_id != ?
+    """, params)
+    friend_deleted = cur.rowcount
+    return friend_deleted
