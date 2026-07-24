@@ -12,7 +12,8 @@ A web-only fork of [psnTUI](https://github.com/TripShuti/psnTUI) — sync your t
 - **Game list** — sortable table with trophy progress and play time; search and filter by name
 - **Game detail** — full trophy list with friend comparison, play time breakdown (today/week/month)
 - **Friends leaderboard** — compare progress with friends
-- **Auto sync** — schedule periodic trophy and friends sync from the UI
+- **Auto sync** — schedule periodic trophy sync from the UI
+  > **Note:** Friend sync is manual-only, by design, for your safety
 - **Manual play time** — set play time for games without PSN tracking
 
 ## Quick Start (Docker)
@@ -46,13 +47,18 @@ psnself --sync          # sync trophies
 psnself --sync-friends   # sync friends leaderboard
 psnself --sync-all       # both
 ```
-
 ## Configuration
 
 All data is stored in `~/.config/psnself/`:
 - `config.json` — NPSSO + online ID
 - `schedule.json` — auto-sync intervals
 - `trophies.db` — your trophy data
+
+> **Note:** The container mounts your host's `/etc/localtime` so the daily
+> auto-sync (23:00–00:00 window) runs at the correct local time. If you're
+> on a platform where this mount doesn't work (e.g. some Docker Desktop
+> setups), set `TZ=Your/Timezone` under `environment:` in
+> `docker-compose.yml` instead — see the [list of tz database names](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 
 ## Credits
 

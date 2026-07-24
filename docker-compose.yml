@@ -6,4 +6,6 @@ services:
       - "8420:8420"
     volumes:
       - ~/.config/psnself:/root/.config/psnself
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
