@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import json
+import random
 import time
+from datetime import datetime
+from threading import Lock
 
 from psnself import auth
 from psnself.log import get_logger
-from psnself.sync import sync_lock, sync_trophies, fetch_friends_leaderboard
+from psnself.sync import sync_trophies
 
 SCHEDULE_PATH = auth.get_config_path().parent / "schedule.json"
+
+_schedule_lock = Lock()
 
 logger = get_logger("scheduler")
 
 
-def _load_schedule() -> dict[str, int | float]:
+def _load_schedule() -> dict:
     if SCHEDULE_PATH.exists():
         return json.loads(SCHEDULE_PATH.read_text())
     return {}
@@ -25,56 +30,57 @@ def _save_schedule(data: dict) -> None:
     SCHEDULE_PATH.write_text(json.dumps(existing, indent=2))
 
 
-def _need_sync(cfg: dict, key: str, interval_hours: int | float) -> bool:
-    if interval_hours <= 0:
-        return False
-    last = cfg.get(key, 0)
-    return time.time() - last >= interval_hours * 3600
-
-
-def _check_and_sync(npsso: str, key: str, interval_hours: int | float,
-                     sync_fn, label: str) -> None:
-    if interval_hours <= 0:
-        return
-    with sync_lock:
-        fresh = _load_schedule()
-        last = fresh.get(key, 0)
-        if time.time() - last < interval_hours * 3600:
-            return
-        logger.info(
-            "Starting %s sync (interval=%dh, last=%s)",
-            label, interval_hours,
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last)) if last else "never",
-        )
-
-    result = sync_fn(npsso)
-
-    if result.get("status") != "error":
-        with sync_lock:
-            fresh = _load_schedule()
-            if time.time() - fresh.get(key, 0) >= interval_hours * 3600:
-                _save_schedule({key: time.time()})
-                logger.info("%s sync saved at %s", label.capitalize(), key)
-
-
 def _scheduler_loop() -> None:
     logger.info("Scheduler started (checking every 60s)")
     while True:
         time.sleep(60)
         try:
             cfg = _load_schedule()
-            ti = cfg.get("trophy_interval_hours", 0)
-            fi = cfg.get("friends_interval_hours", 0)
-            if ti == 0 and fi == 0:
+            if not cfg.get("daily_sync_enabled", False):
                 continue
+
             npsso = auth.load_config().get("npsso")
             if not npsso:
                 continue
-            if _need_sync(cfg, "last_trophy_sync", ti):
-                _check_and_sync(npsso, "last_trophy_sync", ti,
-                                 sync_trophies, "trophy")
-            if _need_sync(cfg, "last_friends_sync", fi):
-                _check_and_sync(npsso, "last_friends_sync", fi,
-                                 fetch_friends_leaderboard, "friends")
+
+            now = datetime.now()
+            if now.hour != 23:
+                continue
+
+            today_str = now.strftime("%Y-%m-%d")
+            if cfg.get("last_auto_sync_date") == today_str:
+                continue
+
+            # Pick a random minute in 23:00-00:00 for today if not yet set
+            scheduled_date = cfg.get("scheduled_date")
+            target_minute = cfg.get("scheduled_minute")
+            if scheduled_date != today_str or target_minute is None:
+                target_minute = random.randint(0, 59)
+                with _schedule_lock:
+                    fresh = _load_schedule()
+                    if fresh.get("last_auto_sync_date") == today_str:
+                        continue
+                    _save_schedule({"scheduled_minute": target_minute, "scheduled_date": today_str})
+                    logger.info("Scheduled daily sync at 23:%02d for %s", target_minute, today_str)
+
+            if now.minute < target_minute:
+                continue
+
+            with _schedule_lock:
+                fresh = _load_schedule()
+                if fresh.get("last_auto_sync_date") == today_str:
+                    continue
+                _save_schedule({"last_auto_sync_date": today_str, "scheduled_minute": None, "scheduled_date": None})
+
+            logger.info("Starting daily auto trophy sync for %s", today_str)
+            result = sync_trophies(npsso)
+
+            if result.get("status") == "error":
+                logger.error("Daily auto sync failed: %s", result.get("error"))
+            else:
+                logger.info(
+                    "Daily auto sync done: +%d trophies, %d games",
+                    result.get("trophies_added", 0), result.get("games_updated", 0),
+                )
         except Exception as e:
             logger.error("Scheduler error: %s", e, exc_info=True)

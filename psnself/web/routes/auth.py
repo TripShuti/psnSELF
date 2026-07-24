@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from psnself import auth, sync
 from psnself.web.scheduler import _load_schedule, _save_schedule
 from psnself.web.template import templates
-from psnself.web.utils import _auth_context, _fmt_remaining
+from psnself.web.utils import _auth_context
 
 router = APIRouter()
 
@@ -17,14 +17,10 @@ router = APIRouter()
 @router.get("/auth", response_class=HTMLResponse)
 def auth_page(request: Request) -> HTMLResponse:
     sc = _load_schedule()
-    ti = sc.get("trophy_interval_hours", 0)
-    fi = sc.get("friends_interval_hours", 0)
     return templates.TemplateResponse(request, "auth.html", {
         **_auth_context(), "active": "auth",
-        "trophy_interval": ti,
-        "friends_interval": fi,
-        "next_trophy": _fmt_remaining(ti, sc.get("last_trophy_sync", 0)) if ti > 0 else None,
-        "next_friends": _fmt_remaining(fi, sc.get("last_friends_sync", 0)) if fi > 0 else None,
+        "daily_sync_enabled": sc.get("daily_sync_enabled", False),
+        "last_auto_sync_date": sc.get("last_auto_sync_date"),
     })
 
 
@@ -60,16 +56,7 @@ async def auth_submit(request: Request) -> HTMLResponse:
 @router.post("/auth/schedule")
 async def auth_schedule(request: Request) -> HTMLResponse:
     form = await request.form()
-    ti = str(form.get("trophy_interval", "0")).strip()
-    fi = str(form.get("friends_interval", "0")).strip()
-    try:
-        ti = max(0, int(ti))
-        fi = max(0, int(fi))
-    except (ValueError, TypeError):
-        return HTMLResponse('<span style="color: var(--err);">Invalid interval value</span>')
-    _save_schedule({"trophy_interval_hours": ti, "friends_interval_hours": fi})
-    return HTMLResponse(
-        f'<span style="color: var(--accent);">✓ Schedule saved'
-        f'{" — next trophy sync in ~" + _fmt_remaining(ti, _load_schedule().get("last_trophy_sync", 0)) if ti > 0 else ""}'
-        f'</span>'
-    )
+    enabled = str(form.get("daily_sync_enabled", "0")).strip() in ("1", "true", "on")
+    _save_schedule({"daily_sync_enabled": enabled})
+    status = "enabled ✓ — runs daily between 23:00 and 00:00 (random minute)" if enabled else "disabled"
+    return HTMLResponse(f'<span style="color: var(--accent);">✓ Auto sync {status}</span>')

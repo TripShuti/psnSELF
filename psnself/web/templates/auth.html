@@ -53,45 +53,35 @@
   <div class="term-card p-6 mt-6">
     <span class="term-card__title accent">Auto Sync Schedule</span>
     <div class="mt-4 text-sm space-y-3">
-      <div class="flex gap-4 items-center">
-        <span style="color: var(--fg-dim); min-width: 180px;">Trophy sync every</span>
+      <label class="flex items-center gap-3 cursor-pointer">
         <input
-          id="trophy-interval"
-          name="trophy_interval"
-          type="number"
-          min="0"
-          value="{{ trophy_interval }}"
-          class="text-xs px-2 py-1 bg-transparent border outline-none w-16 text-center"
-          style="border-color: var(--secondary); color: var(--fg);">
-        <span style="color: var(--fg-dim);">hours (0 = off)</span>
-        {% if next_trophy %}
-          <span class="text-xs" style="color: var(--accent);">Next: ~{{ next_trophy }}</span>
-        {% endif %}
-      </div>
-      <div class="flex gap-4 items-center">
-        <span style="color: var(--fg-dim); min-width: 180px;">Friends sync every</span>
-        <input
-          id="friends-interval"
-          name="friends_interval"
-          type="number"
-          min="0"
-          value="{{ friends_interval }}"
-          class="text-xs px-2 py-1 bg-transparent border outline-none w-16 text-center"
-          style="border-color: var(--secondary); color: var(--fg);">
-        <span style="color: var(--fg-dim);">hours (0 = off)</span>
-        {% if next_friends %}
-          <span class="text-xs" style="color: var(--accent);">Next: ~{{ next_friends }}</span>
-        {% endif %}
-      </div>
+          id="daily-sync"
+          name="daily_sync_enabled"
+          type="checkbox"
+          value="1"
+          {% if daily_sync_enabled %}checked{% endif %}
+          class="w-4 h-4 accent-color"
+          style="accent-color: var(--accent);">
+        <span style="color: var(--fg-dim);">Sync trophies daily between 23:00–00:00 (random minute)</span>
+      </label>
+      {% if last_auto_sync_date %}
+        <div class="text-xs" style="color: var(--accent);">
+          ✓ Today's auto sync done
+        </div>
+      {% else %}
+        <div class="text-xs" style="color: var(--fg-dim);">
+          Waiting for 23:00 — auto sync not yet run today
+        </div>
+      {% endif %}
       <div class="flex gap-3 mt-4">
         <button
           class="text-xs px-4 py-1.5 border"
           style="border-color: var(--accent); color: var(--accent);"
           hx-post="/auth/schedule"
-          hx-include="#trophy-interval, #friends-interval"
+          hx-include="#daily-sync"
           hx-target="#schedule-status"
           hx-swap="innerHTML">
-          Save Schedule
+          Save
         </button>
       </div>
       <div id="schedule-status" class="text-sm"></div>
