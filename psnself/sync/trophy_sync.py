@@ -15,6 +15,7 @@ from .extractor import (
     _ensure_request_timeout,
     _ensure_utc,
     _extract_game_data,
+    _extract_group_data,
     _extract_trophy_data,
     _get_platform,
     _normalize_name,
@@ -23,6 +24,81 @@ from .extractor import (
 )
 
 logger = get_logger("trophy_sync")
+
+
+def _find_ts_stats(
+    conn: sqlite3.Connection,
+    title: Any,
+    np_comm_id: str,
+    stats_by_id: dict[str, Any],
+    stats_by_name: dict[str, Any],
+) -> Any | None:
+    # Match a trophy title to its PSN gamelist (play time) entry.
+    # The API title often has np_title_id=None and Sony sometimes renames
+    # the gamelist entry ("Genshin Impact" -> "Genshin Impact 6th
+    # Anniversary"), so fall back to title IDs already stored in the DB
+    # and to a rename-tolerant name lookup.
+    title_ids: list[str] = []
+    api_tid = getattr(title, "np_title_id", None)
+    if api_tid and api_tid not in title_ids:
+        title_ids.append(api_tid)
+    try:
+        row = conn.execute(
+            "SELECT np_title_id FROM games WHERE np_communication_id = ?",
+            (np_comm_id,),
+        ).fetchone()
+        if row and row["np_title_id"] and row["np_title_id"] not in title_ids:
+            title_ids.append(row["np_title_id"])
+    except sqlite3.Error:
+        pass
+    try:
+        gs = db_gamestats.get_game_stats(conn, np_comm_id)
+        if gs and gs["title_id"] and gs["title_id"] not in title_ids:
+            title_ids.append(gs["title_id"])
+    except sqlite3.Error:
+        pass
+    for tid in title_ids:
+        if tid in stats_by_id:
+            return stats_by_id[tid]
+
+    key = _normalize_name(getattr(title, "title_name", None) or "")
+    if not key:
+        return None
+    if key in stats_by_name:
+        return stats_by_name[key]
+    # Rename-tolerant fallback: gamelist entry kept the base name and gained
+    # a suffix. Only accept an unambiguous single candidate so that e.g.
+    # "Game" never grabs play time of "Game II" when both exist.
+    candidates: list[Any] = []
+    for stats_key, ts in stats_by_name.items():
+        if (stats_key == key
+                or stats_key.startswith(key + " ")
+                or key.startswith(stats_key + " ")):
+            if not any(c is ts for c in candidates):
+                candidates.append(ts)
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
+
+
+def _defined_trophy_total(title: Any) -> int | None:
+    # Total trophies across all groups, from the title summary.
+    try:
+        d = title.defined_trophies
+        return int(d.bronze) + int(d.silver) + int(d.gold) + int(d.platinum)
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _stored_trophy_count(conn: sqlite3.Connection, np_comm_id: str) -> int | None:
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM trophies WHERE np_communication_id = ?",
+            (np_comm_id,),
+        ).fetchone()
+        return int(row["c"]) if row else None
+    except (sqlite3.Error, TypeError, ValueError):
+        return None
 
 
 def sync_trophies(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
@@ -122,6 +198,19 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
             ts = _ensure_utc(title.last_updated_datetime)
             needs_update = ts > last_sync_utc
 
+        if not needs_update:
+            # Self-heal: older syncs stored only the default trophy group,
+            # so re-fetch games whose stored count lags behind PSN.
+            defined_total = _defined_trophy_total(title)
+            if defined_total is not None:
+                stored = _stored_trophy_count(conn, np_comm_id)
+                if stored is not None and stored != defined_total:
+                    logger.debug(
+                        "Backfilling %s (%s): stored %d != defined %d",
+                        title.title_name, np_comm_id, stored, defined_total,
+                    )
+                    needs_update = True
+
         if needs_update:
             logger.debug("Processing %s (%s)", title.title_name, np_comm_id)
             platform = _get_platform(title)
@@ -131,12 +220,24 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
                         np_comm_id,
                         platform,
                         include_progress=True,
+                        trophy_group_id="all",
                     )
                 )
             except Exception as e:
                 if len(result["warnings"]) < 20:
                     result["warnings"].append(f"Skipped {title.title_name}: {e}")
                 continue
+
+            try:
+                groups = client.trophy_groups_summary(np_comm_id, platform)
+                for g in groups.trophy_groups:
+                    db.upsert_trophy_group(
+                        conn, _extract_group_data(np_comm_id, g)
+                    )
+            except Exception as e:
+                logger.debug(
+                    "No trophy group names for %s: %s", np_comm_id, e
+                )
 
             trophy_dicts = []
             for t in trophies:
@@ -161,9 +262,7 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
             else:
                 result["trophies_added"] += sum(1 for t in trophy_dicts if t["earned"])
 
-        ts_stats = stats_by_id.get(title.np_title_id or "")
-        if not ts_stats:
-            ts_stats = stats_by_name.get(_normalize_name(title.title_name or ""))
+        ts_stats = _find_ts_stats(conn, title, np_comm_id, stats_by_id, stats_by_name)
         if ts_stats:
             if ts_stats.title_id and ts_stats.title_id != title.np_title_id:
                 conn.execute(

@@ -47,6 +47,8 @@ class Trophy:
     earned: bool = False
     earned_date_time: Optional[str] = None
     title_name: str = ""
+    trophy_group_id: str = "default"
+    trophy_group_name: Optional[str] = None
 
     @staticmethod
     def from_row(row) -> Trophy:
@@ -61,6 +63,8 @@ class Trophy:
             earned=bool(row.get("earned", 0)),
             earned_date_time=row.get("earned_date_time"),
             title_name=row.get("title_name", ""),
+            trophy_group_id=row.get("trophy_group_id") or "default",
+            trophy_group_name=row.get("trophy_group_name"),
         )
 
 

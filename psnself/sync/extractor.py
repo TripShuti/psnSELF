@@ -48,7 +48,7 @@ def _ensure_request_timeout() -> None:
 
 
 def _extract_game_data(title: Any) -> dict:
-    platform = list(title.title_platform)[0].value if title.title_platform else None
+    platform = _get_platform(title).value
     return {
         "np_communication_id": title.np_communication_id,
         "np_title_id": title.np_title_id,
@@ -112,9 +112,24 @@ def _extract_trophy_data(np_comm_id: str, trophy: Any) -> dict:
 
 
 def _get_platform(title: Any) -> PlatformType:
-    if title.title_platform:
-        return list(title.title_platform)[0]
+    plats = set(getattr(title, "title_platform", None) or ())
+    # Sony added a PSPC platform to some titles; the trophy endpoints 404
+    # for it, so prefer a real console platform deterministically instead
+    # of taking an arbitrary first element of the set.
+    for preferred in (PlatformType.PS5, PlatformType.PS4):
+        if preferred in plats:
+            return preferred
+    if plats:
+        return sorted(plats, key=lambda p: p.value)[0]
     return PlatformType.PS4
+
+
+def _extract_group_data(np_comm_id: str, group: Any) -> dict:
+    return {
+        "np_communication_id": np_comm_id,
+        "trophy_group_id": getattr(group, "trophy_group_id", None) or "default",
+        "trophy_group_name": getattr(group, "trophy_group_name", None),
+    }
 
 
 def _normalize_name(name: str) -> str:

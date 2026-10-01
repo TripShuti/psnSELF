@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
-from psnself.sync.extractor import _ensure_utc, _parse_date_utc, _normalize_name
+from psnawp_api.models.trophies import PlatformType
+
+from psnself.sync.extractor import (
+    _ensure_utc,
+    _get_platform,
+    _parse_date_utc,
+    _normalize_name,
+)
 
 
 class TestEnsureUtc:
@@ -56,3 +64,25 @@ class TestNormalizeName:
 
     def test_collapse_whitespace(self) -> None:
         assert _normalize_name("a    b") == "a b"
+
+
+class TestGetPlatform:
+    def test_prefers_ps5_over_pspc(self) -> None:
+        title = SimpleNamespace(
+            title_platform={PlatformType.PSPC, PlatformType.PS5}
+        )
+        assert _get_platform(title) is PlatformType.PS5
+
+    def test_prefers_ps4_over_pspc(self) -> None:
+        title = SimpleNamespace(
+            title_platform={PlatformType.PSPC, PlatformType.PS4}
+        )
+        assert _get_platform(title) is PlatformType.PS4
+
+    def test_single_pspc_returned_as_is(self) -> None:
+        title = SimpleNamespace(title_platform={PlatformType.PSPC})
+        assert _get_platform(title) is PlatformType.PSPC
+
+    def test_empty_defaults_to_ps4(self) -> None:
+        assert _get_platform(SimpleNamespace(title_platform=set())) is PlatformType.PS4
+        assert _get_platform(SimpleNamespace(title_platform=None)) is PlatformType.PS4

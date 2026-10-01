@@ -139,6 +139,18 @@ def upsert_trophy(conn: sqlite3.Connection, t: dict) -> None:
     ))
 
 
+def upsert_trophy_group(conn: sqlite3.Connection, g: dict) -> None:
+    conn.execute("""
+        INSERT INTO trophy_groups (np_communication_id, trophy_group_id, trophy_group_name)
+        VALUES (?, ?, ?)
+        ON CONFLICT(np_communication_id, trophy_group_id) DO UPDATE SET
+            trophy_group_name=excluded.trophy_group_name
+    """, (
+        g["np_communication_id"], g.get("trophy_group_id", "default"),
+        g.get("trophy_group_name"),
+    ))
+
+
 def write_game_with_trophies(conn: sqlite3.Connection, game: dict, trophies: list[dict]) -> None:
     upsert_game(conn, game)
     for t in trophies:
@@ -195,7 +207,12 @@ def get_game(conn: sqlite3.Connection, np_comm_id: str) -> sqlite3.Row | None:
 
 def get_trophies(conn: sqlite3.Connection, np_comm_id: str) -> list[sqlite3.Row]:
     return conn.execute(
-        "SELECT * FROM trophies WHERE np_communication_id = ? ORDER BY trophy_id",
+        """SELECT t.*, tg.trophy_group_name
+        FROM trophies t
+        LEFT JOIN trophy_groups tg
+            ON tg.np_communication_id = t.np_communication_id
+            AND tg.trophy_group_id = t.trophy_group_id
+        WHERE t.np_communication_id = ? ORDER BY t.trophy_id""",
         (np_comm_id,)
     ).fetchall()
 

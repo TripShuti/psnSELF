@@ -81,6 +81,7 @@
       <thead>
         <tr>
           <th class="py-1">Name</th>
+          <th class="py-1 hidden sm:table-cell">Group</th>
           <th class="py-1 hidden sm:table-cell">Type</th>
           <th class="py-1 hidden sm:table-cell">Rarity</th>
           <th class="py-1 text-right">Earned</th>
@@ -90,6 +91,7 @@
         {% for t in trophies %}
         <tr>
           <td class="py-1 pr-3">{{ t.trophy_name }}</td>
+          <td class="py-1 hidden sm:table-cell" style="color: var(--fg-dim);">{{ t.trophy_group_name or t.trophy_group_id }}</td>
           <td class="py-1 hidden sm:table-cell" style="color: var(--{{ t.trophy_type }});">{{ t.trophy_type|capitalize }}</td>
           <td class="py-1 hidden sm:table-cell" style="color: var(--fg-dim);">{{ rarity_labels.get(t.trophy_rarity, t.trophy_rarity or '–') }}</td>
           <td class="py-1 text-right whitespace-nowrap" style="color: var(--fg-dim);">

@@ -57,6 +57,14 @@ CREATE TABLE IF NOT EXISTS play_delta_history (
     FOREIGN KEY (np_communication_id) REFERENCES games(np_communication_id)
 );
 
+CREATE TABLE IF NOT EXISTS trophy_groups (
+    np_communication_id TEXT NOT NULL,
+    trophy_group_id TEXT NOT NULL DEFAULT 'default',
+    trophy_group_name TEXT,
+    PRIMARY KEY (np_communication_id, trophy_group_id),
+    FOREIGN KEY (np_communication_id) REFERENCES games(np_communication_id)
+);
+
 CREATE TABLE IF NOT EXISTS sync_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT DEFAULT (datetime('now')),
