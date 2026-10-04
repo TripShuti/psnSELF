@@ -180,6 +180,88 @@ class TestSyncLog:
     def test_get_game_stats(self, conn: sqlite3.Connection) -> None:
         assert db_gamestats.get_game_stats(conn, "NPWR_NONE") is None
 
+    def test_first_sighting_attributes_to_first_played(
+        self, conn: sqlite3.Connection
+    ) -> None:
+        db_module.upsert_game(conn, {
+            "np_communication_id": "NPWR_FIRST",
+            "title_name": "First", "platform": "PS5",
+        })
+        db_gamestats.update_game_stats(
+            conn, "NPWR_FIRST", title_id="TID", total_seconds=2616,
+            play_count=3, first_played="2026-10-04T09:52:25+00:00",
+            last_played="2026-10-04T13:27:36+00:00",
+        )
+        conn.commit()
+        rows = conn.execute(
+            "SELECT date, delta_seconds FROM play_delta_history"
+            " WHERE np_communication_id = 'NPWR_FIRST'"
+        ).fetchall()
+        assert [(r["date"], r["delta_seconds"]) for r in rows] == [("2026-10-04", 2616)]
+        # second observation only records the increase
+        db_gamestats.update_game_stats(
+            conn, "NPWR_FIRST", title_id="TID", total_seconds=3000,
+            play_count=4, first_played="2026-10-04T09:52:25+00:00",
+            last_played="2026-10-05T10:00:00+00:00",
+        )
+        conn.commit()
+        total = conn.execute(
+            "SELECT COALESCE(SUM(delta_seconds), 0) FROM play_delta_history"
+            " WHERE np_communication_id = 'NPWR_FIRST'"
+        ).fetchone()[0]
+        assert total == 3000
+
+    def test_first_sighting_without_first_played_records_nothing(
+        self, conn: sqlite3.Connection
+    ) -> None:
+        db_module.upsert_game(conn, {
+            "np_communication_id": "NPWR_NOFP",
+            "title_name": "NoFp", "platform": "PS5",
+        })
+        db_gamestats.update_game_stats(
+            conn, "NPWR_NOFP", title_id="TID", total_seconds=500,
+            play_count=1, first_played=None, last_played="2024-12-25T10:00:00Z",
+        )
+        conn.commit()
+        total = conn.execute(
+            "SELECT COALESCE(SUM(delta_seconds), 0) FROM play_delta_history"
+            " WHERE np_communication_id = 'NPWR_NOFP'"
+        ).fetchone()[0]
+        assert total == 0
+
+    def test_init_db_backfills_legacy_rows(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        db_path = tmp_path / "trophies.db"
+        monkeypatch.setattr(db_module, "DB_PATH", db_path)
+        db_module.close_conn()
+        db_module.init_db()
+        conn = db_module.get_conn()
+        conn.execute(
+            "INSERT INTO games (np_communication_id, title_name) VALUES ('NPWR_OLD', 'Old')"
+        )
+        conn.execute(
+            "INSERT INTO game_stats (np_communication_id, title_id,"
+            " total_seconds, play_count, first_played, last_played)"
+            " VALUES ('NPWR_OLD', 'T', 3600, 2,"
+            " '2024-01-02T10:00:00+00:00', '2024-05-01T10:00:00+00:00')"
+        )
+        conn.commit()
+        db_module.init_db()
+        rows = conn.execute(
+            "SELECT date, delta_seconds FROM play_delta_history"
+            " WHERE np_communication_id = 'NPWR_OLD'"
+        ).fetchall()
+        assert [(r["date"], r["delta_seconds"]) for r in rows] == [("2024-01-02", 3600)]
+        # idempotent: second run does not double it
+        db_module.init_db()
+        total = conn.execute(
+            "SELECT COALESCE(SUM(delta_seconds), 0) FROM play_delta_history"
+            " WHERE np_communication_id = 'NPWR_OLD'"
+        ).fetchone()[0]
+        assert total == 3600
+        db_module.close_conn()
+
 
 class TestManualPlayTime:
     def test_set_manual_time_creates_entry(self, conn: sqlite3.Connection) -> None:

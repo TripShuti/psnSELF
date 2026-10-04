@@ -76,6 +76,22 @@ def init_db() -> None:
         (MAX_DELTA_SECONDS,)
     )
 
+    # One-time backfill (idempotent): games observed with play time but
+    # zero delta history get their total attributed to the first-played
+    # day — same rule as update_game_stats() for first sightings.
+    conn.execute("""
+        INSERT INTO play_delta_history (np_communication_id, date, delta_seconds)
+        SELECT gs.np_communication_id, substr(gs.first_played, 1, 10), gs.total_seconds
+        FROM game_stats gs
+        WHERE gs.total_seconds > 0 AND gs.first_played IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM play_delta_history pdh
+              WHERE pdh.np_communication_id = gs.np_communication_id
+          )
+        ON CONFLICT(np_communication_id, date)
+        DO UPDATE SET delta_seconds = delta_seconds + excluded.delta_seconds
+    """)
+
     try:
         conn.execute(
             "UPDATE sync_log SET status = 'error', error_message = 'Cancelled (stuck)',"

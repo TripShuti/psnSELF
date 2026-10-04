@@ -46,6 +46,16 @@ def update_game_stats(conn: sqlite3.Connection, np_comm_id: str,
                 ON CONFLICT(np_communication_id, date)
                 DO UPDATE SET delta_seconds = delta_seconds + excluded.delta_seconds
             """, (np_comm_id, play_date, delta))
+    elif total_seconds > 0 and first_played:
+        # First sighting of this game: everything was played between
+        # first_played and now, so attribute the whole total to the
+        # first-played day instead of dropping it from Today/Week/Month.
+        conn.execute("""
+            INSERT INTO play_delta_history (np_communication_id, date, delta_seconds)
+            VALUES (?, ?, ?)
+            ON CONFLICT(np_communication_id, date)
+            DO UPDATE SET delta_seconds = delta_seconds + excluded.delta_seconds
+        """, (np_comm_id, first_played[:10], total_seconds))
 
 
 def get_play_time(conn: sqlite3.Connection, np_comm_id: str,
