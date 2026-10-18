@@ -72,13 +72,49 @@ def _find_ts_stats(
     candidates: list[Any] = []
     for stats_key, ts in stats_by_name.items():
         if (stats_key == key
-                or stats_key.startswith(key + " ")
-                or key.startswith(stats_key + " ")):
+                or stats_key.startswith((key + " ", key + ":"))
+                or key.startswith((stats_key + " ", stats_key + ":"))):
             if not any(c is ts for c in candidates):
                 candidates.append(ts)
     if len(candidates) == 1:
         return candidates[0]
     return None
+
+
+def _update_ts_stats(conn: sqlite3.Connection, np_comm_id: str, stats: Any) -> None:
+    """Refresh available metadata even when PSN has no usable play duration."""
+    existing = db_gamestats.get_game_stats(conn, np_comm_id)
+    duration = stats.play_duration
+    seconds = int(duration.total_seconds()) if duration is not None else 0
+    keep_time = existing is not None and (
+        duration is None or (seconds == 0 and existing["total_seconds"] > 0)
+    )
+    if keep_time:
+        seconds = existing["total_seconds"]
+    # Keep the manual-time marker while retaining a manual duration. Store the
+    # matched title ID on games so future syncs can use an exact ID lookup.
+    stats_title_id = existing["title_id"] if keep_time else (
+        stats.title_id or (existing["title_id"] if existing is not None else None)
+    )
+    if stats.title_id:
+        conn.execute(
+            "UPDATE games SET np_title_id = ? WHERE np_communication_id = ?",
+            (stats.title_id, np_comm_id),
+        )
+    first = stats.first_played_date_time
+    last = stats.last_played_date_time
+    count = stats.play_count
+    db_gamestats.update_game_stats(
+        conn, np_comm_id,
+        title_id=stats_title_id,
+        total_seconds=seconds,
+        play_count=(count if count is not None else
+                    existing["play_count"] if existing is not None else None),
+        first_played=(first.isoformat() if first is not None else
+                      existing["first_played"] if existing is not None else None),
+        last_played=(last.isoformat() if last is not None else
+                     existing["last_played"] if existing is not None else None),
+    )
 
 
 def _defined_trophy_total(title: Any) -> int | None:
@@ -264,26 +300,7 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
 
         ts_stats = _find_ts_stats(conn, title, np_comm_id, stats_by_id, stats_by_name)
         if ts_stats:
-            if ts_stats.title_id and ts_stats.title_id != title.np_title_id:
-                conn.execute(
-                    "UPDATE games SET np_title_id = ? WHERE np_communication_id = ?",
-                    (ts_stats.title_id, np_comm_id)
-                )
-            if ts_stats.play_duration is not None:
-                psn_secs = int(ts_stats.play_duration.total_seconds())
-                existing_gs = db_gamestats.get_game_stats(conn, np_comm_id)
-                if existing_gs and existing_gs["title_id"] is None and psn_secs == 0:
-                    continue
-                db_gamestats.update_game_stats(
-                    conn, np_comm_id,
-                    title_id=ts_stats.title_id,
-                    total_seconds=psn_secs,
-                    play_count=ts_stats.play_count,
-                    first_played=ts_stats.first_played_date_time.isoformat()
-                    if ts_stats.first_played_date_time else None,
-                    last_played=ts_stats.last_played_date_time.isoformat()
-                    if ts_stats.last_played_date_time else None,
-                )
+            _update_ts_stats(conn, np_comm_id, ts_stats)
         else:
             existing = db_gamestats.get_game_stats(conn, np_comm_id)
             if not existing or existing["total_seconds"] == 0:
