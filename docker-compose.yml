@@ -8,4 +8,6 @@ services:
       - ~/.config/psnself:/root/.config/psnself
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
+    environment:
+      PSNSELF_API_KEY: ${PSNSELF_API_KEY:-}
     restart: unless-stopped

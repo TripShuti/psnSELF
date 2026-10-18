@@ -12,6 +12,7 @@ from fastapi.responses import Response
 
 from psnself import db
 from psnself.log import setup_logger
+from psnself.web.routes.api import router as api_router
 from psnself.web.routes.auth import router as auth_router
 from psnself.web.routes.dashboard import router as dashboard_router
 from psnself.web.routes.friends import router as friends_router
@@ -22,6 +23,7 @@ LOGGER = setup_logger()
 
 app = FastAPI(title="psnSELF")
 
+app.include_router(api_router)
 app.include_router(dashboard_router)
 app.include_router(auth_router)
 app.include_router(games_router)
