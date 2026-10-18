@@ -5,6 +5,7 @@ import sqlite3
 from typing import Any
 
 from psnawp_api import PSNAWP
+from psnawp_api.models.trophies.trophy_titles import BASE_PATH, API_PATH
 
 from .. import db
 from .. import db_gamestats
@@ -79,6 +80,57 @@ def _find_ts_stats(
     if len(candidates) == 1:
         return candidates[0]
     return None
+
+
+def _resolve_unmatched_stats(
+    conn: sqlite3.Connection,
+    titles: list[Any],
+    stats_by_id: dict[str, Any],
+    stats_by_name: dict[str, Any],
+    authenticator: Any,
+) -> dict[str, Any]:
+    """Link unmatched gamelist IDs to trophy sets using Sony's own mapping."""
+    unresolved: set[str] = set()
+    used_ids: set[str] = set()
+    for title in titles:
+        comm_id = title.np_communication_id
+        if not comm_id:
+            continue
+        matched = _find_ts_stats(conn, title, comm_id, stats_by_id, stats_by_name)
+        if matched is None:
+            unresolved.add(comm_id)
+        elif matched.title_id:
+            used_ids.add(matched.title_id)
+    if not unresolved:
+        return {}
+    remaining = [tid for tid in stats_by_id if tid not in used_ids]
+    candidates: dict[str, dict[str, Any]] = {}
+    url = BASE_PATH["trophies"] + API_PATH["trophy_titles_for_title"].format(account_id="me")
+    try:
+        # Sony accepts at most five IDs. Check all batches before accepting a
+        # mapping: regional editions can share a trophy set.
+        for offset in range(0, len(remaining), 5):
+            batch = remaining[offset:offset + 5]
+            payload = authenticator.get(
+                url=url, params={"npTitleIds": ",".join(batch)}
+            ).json()
+            for entry in payload["titles"]:
+                tid = entry.get("npTitleId")
+                if tid not in batch:
+                    continue
+                for trophy in entry.get("trophyTitles", []):
+                    comm_id = trophy.get("npCommunicationId")
+                    if comm_id in unresolved:
+                        candidates.setdefault(comm_id, {})[tid] = stats_by_id[tid]
+    except Exception as exc:
+        # Do not abort sync or accept a partial, potentially ambiguous result.
+        # Log only the exception class to avoid exposing authentication data.
+        logger.warning("Could not resolve PSN title IDs (%s)", type(exc).__name__)
+        return {}
+    return {
+        comm_id: next(iter(matches.values()))
+        for comm_id, matches in candidates.items() if len(matches) == 1
+    }
 
 
 def _update_ts_stats(conn: sqlite3.Connection, np_comm_id: str, stats: Any) -> None:
@@ -219,6 +271,19 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
     except (ValueError, TypeError, OSError) as e:
         result["warnings"].append(f"Could not fetch play time stats: {e}")
 
+    resolved_stats = _resolve_unmatched_stats(
+        conn, all_titles, stats_by_id, stats_by_name, psnawp.authenticator
+    )
+
+    # Capture stored-ID matches before trophy upserts can replace a missing
+    # np_title_id with NULL (notably when play time remains manual).
+    for title in all_titles:
+        comm_id = title.np_communication_id
+        if comm_id and comm_id not in resolved_stats:
+            matched = _find_ts_stats(conn, title, comm_id, stats_by_id, stats_by_name)
+            if matched is not None:
+                resolved_stats[comm_id] = matched
+
     for idx, title in enumerate(all_titles):
         if progress_callback:
             progress_callback(idx, len(all_titles), title.title_name or "")
@@ -298,7 +363,7 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
             else:
                 result["trophies_added"] += sum(1 for t in trophy_dicts if t["earned"])
 
-        ts_stats = _find_ts_stats(conn, title, np_comm_id, stats_by_id, stats_by_name)
+        ts_stats = resolved_stats.get(np_comm_id)
         if ts_stats:
             _update_ts_stats(conn, np_comm_id, ts_stats)
         else:
