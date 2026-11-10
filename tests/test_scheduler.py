@@ -146,3 +146,19 @@ def test_missing_schedule_after_23_still_catches_up_immediately(scheduler, monke
     monkeypatch.setattr(s.time, 'time', lambda: datetime(2026, 11, 10, 23, 1).timestamp())
     s._scheduler_tick()
     sync.assert_called_once()
+
+
+def test_old_schedule_settings_retired_without_losing_current_state(scheduler):
+    import json
+
+    now, _ = scheduler
+    legacy = {
+        'trophy_interval_hours': 9, 'friends_interval_hours': 24,
+        'last_trophy_sync': now, 'last_friends_sync': now,
+        'scheduled_minute': 15, 'scheduled_date': '2026-11-09',
+    }
+    current = {'daily_sync_enabled': True, 'next_sync_at': now + 3600,
+               'retry_count': 2, 'last_auto_sync_date': '2026-11-09'}
+    s.SCHEDULE_PATH.write_text(json.dumps({**legacy, **current}))
+    s._save_schedule({'retry_at': now + 300})
+    assert s._load_schedule() == {**current, 'retry_at': now + 300}

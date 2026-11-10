@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import time
 from datetime import date, datetime
 
 from psnself import auth, notifications
@@ -75,16 +74,3 @@ def _auth_context() -> dict:
         "online_id": cfg.get("online_id", "unknown") if cfg.get("npsso") else None,
         "account_id": cfg.get("account_id", "") if cfg.get("npsso") else None,
     }
-
-
-def _fmt_remaining(interval_hours: int | float, last_sync: float) -> str:
-    if last_sync == 0:
-        return "not yet"
-    elapsed = time.time() - last_sync
-    remaining = interval_hours * 3600 - elapsed
-    if remaining <= 0:
-        return "any minute"
-    mins = int(remaining // 60)
-    if mins < 60:
-        return f"{mins}m"
-    return f"{mins // 60}h {mins % 60}m"

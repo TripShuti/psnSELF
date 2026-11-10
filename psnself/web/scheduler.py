@@ -29,6 +29,11 @@ def _save_schedule(data: dict) -> None:
     with _schedule_lock:
         existing = _load_schedule()
         existing.update(data)
+        # Retire settings from the former interval and minute-only schedules.
+        for key in ("trophy_interval_hours", "friends_interval_hours",
+                    "last_trophy_sync", "last_friends_sync",
+                    "scheduled_minute", "scheduled_date"):
+            existing.pop(key, None)
         SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
         temporary = SCHEDULE_PATH.with_suffix(".tmp")
         with temporary.open("w") as handle:
@@ -113,8 +118,7 @@ def _scheduler_tick() -> None:
     next_day = finished_local.date() + timedelta(days=finished_local.hour >= 23)
     _save_schedule({"last_auto_success_at": finished,
                     "next_sync_at": _evening(next_day),
-                    "retry_at": None, "retry_count": 0, "blocked_token": None,
-                    "scheduled_minute": None, "scheduled_date": None})
+                    "retry_at": None, "retry_count": 0, "blocked_token": None})
     logger.info("Daily auto sync done: +%d trophies, %d games",
                 result.get("trophies_added", 0), result.get("games_updated", 0))
 

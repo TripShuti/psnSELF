@@ -67,7 +67,7 @@ def dashboard(request: Request) -> HTMLResponse:
     has_no_time = any(g.play_seconds == 0 for g in games)
 
     return templates.TemplateResponse(request, "index.html", {
-        **_auth_context(), "active": "dashboard",
+        **ac, "active": "dashboard",
         "games": games, "recent": recent, "heatmap": heatmap,
         "playtime": playtime,
         "rarest": rarest, "self_stats": self_stats,

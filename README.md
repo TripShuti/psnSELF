@@ -12,7 +12,7 @@ A web-only fork of [psnTUI](https://github.com/TripShuti/psnTUI) — sync your t
 - **Game list** — sortable table with trophy progress and play time; search and filter by name
 - **Game detail** — full trophy list with friend comparison, play time breakdown (today/week/month)
 - **Friends leaderboard** — compare progress with friends
-- **Auto sync** — schedule periodic trophy sync from the UI
+- **Auto sync** — daily trophy sync with recovery after downtime
   > **Note:** Friend sync is manual-only, by design, for your safety
 - **Manual play time** — set play time for games without PSN tracking
 
@@ -51,7 +51,7 @@ psnself --sync-all       # both
 
 All data is stored in `~/.config/psnself/`:
 - `config.json` — NPSSO + online ID
-- `schedule.json` — auto-sync intervals
+- `schedule.json` — next automatic sync, retry state, and attempt history
 - `trophies.db` — your trophy data
 
 > **Note:** The container mounts your host's `/etc/localtime` so the daily
