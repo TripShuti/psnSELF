@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import re
 import time
-from datetime import date
+from datetime import date, datetime
 
-from psnself import auth
+from psnself import auth, notifications
 
 RARITY_LABELS = {
     "ultra_rare": "Ultra Rare", "very_rare": "Very Rare",
@@ -66,9 +66,15 @@ def _next_month(year: int, month: int) -> tuple[int, int]:
 
 def _auth_context() -> dict:
     cfg = auth.load_config()
-    if cfg.get("npsso"):
-        return {"authenticated": True, "online_id": cfg.get("online_id", "unknown"), "account_id": cfg.get("account_id", "")}
-    return {"authenticated": False, "online_id": None, "account_id": None}
+    health = notifications.load_state()
+    last_success = health.get("last_success")
+    return {
+        "authenticated": bool(cfg.get("npsso")) and not health.get("invalid", False),
+        "auth_invalid": bool(cfg.get("npsso")) and health.get("invalid", False),
+        "last_success": datetime.fromtimestamp(last_success).strftime("%Y-%m-%d %H:%M") if last_success else None,
+        "online_id": cfg.get("online_id", "unknown") if cfg.get("npsso") else None,
+        "account_id": cfg.get("account_id", "") if cfg.get("npsso") else None,
+    }
 
 
 def _fmt_remaining(interval_hours: int | float, last_sync: float) -> str:

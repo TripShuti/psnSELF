@@ -92,6 +92,12 @@
   </header>
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    {% if auth_invalid %}
+    <div class="term-card p-4 mb-6 text-sm" role="alert" style="border-color: var(--err); color: var(--err);">
+      NPSSO is no longer valid. Sync cannot continue. <a href="/auth" class="underline">Update NPSSO</a>.
+      <div class="mt-2">Last successful trophy sync: {{ last_success or 'not yet recorded' }}</div>
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 

@@ -7,7 +7,7 @@ from typing import Any
 from psnawp_api import PSNAWP
 from psnawp_api.models.trophies.trophy_titles import BASE_PATH, API_PATH
 
-from .. import db
+from .. import db, notifications
 from .. import db_gamestats
 from ..sync import sync_lock
 from ..log import get_logger
@@ -191,7 +191,14 @@ def _stored_trophy_count(conn: sqlite3.Connection, np_comm_id: str) -> int | Non
 
 def sync_trophies(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
     with sync_lock:
-        return _do_sync(npsso, progress_callback)
+        try:
+            result = _do_sync(npsso, progress_callback)
+        except Exception as exc:
+            notifications.record_failure(npsso, exc)
+            raise
+        if result.get("status") == "success":
+            notifications.record_success(npsso, trophies=True)
+        return result
 
 
 def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
@@ -248,7 +255,8 @@ def _do_sync(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]
         client = psnawp.me()
     except Exception as e:
         result["status"] = "error"
-        result["error"] = f"Authentication failed: {e}"
+        notifications.record_failure(npsso, e)
+        result["error"] = "NPSSO is no longer valid. Update it on /auth." if isinstance(e, notifications.AUTH_ERRORS) else "Could not connect to PlayStation. Try again later."
         db.finish_sync(conn, sync_id, "error", error_message=str(e))
         conn.commit()
         return result

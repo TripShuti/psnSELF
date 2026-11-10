@@ -51,6 +51,29 @@
   </div>
 
   <div class="term-card p-6 mt-6">
+    <span class="term-card__title accent">Telegram notifications</span>
+    <form class="mt-4 text-sm space-y-4" hx-post="/auth/telegram" hx-target="#telegram-status">
+      <p style="color: var(--fg-dim);">Create a bot with <a class="underline" href="https://t.me/BotFather" target="_blank">@BotFather</a>, then open your bot and press Start. Get your numeric chat ID from <a class="underline" href="https://t.me/userinfobot" target="_blank">@userinfobot</a>.</p>
+      <label class="block">Bot token
+        <input type="password" name="bot_token" autocomplete="new-password" placeholder="{{ 'Token saved — leave blank to keep' if telegram_token_saved else 'Paste bot token' }}" class="w-full mt-2 px-3 py-2 bg-transparent border" style="border-color: var(--secondary);">
+      </label>
+      <label class="block">Chat ID
+        <input name="chat_id" value="{{ telegram.chat_id or '' }}" placeholder="123456789" class="w-full mt-2 px-3 py-2 bg-transparent border" style="border-color: var(--secondary);">
+      </label>
+      <label class="block">Authentication page URL (optional)
+        <input type="url" name="auth_url" value="{{ telegram.auth_url or '' }}" placeholder="https://your-psnself.example/auth" class="w-full mt-2 px-3 py-2 bg-transparent border" style="border-color: var(--secondary);">
+      </label>
+      <label class="flex items-center gap-3"><input type="checkbox" name="telegram_enabled" value="1" {% if telegram.enabled %}checked{% endif %}> Notify when NPSSO becomes invalid</label>
+      <p class="text-xs" style="color: var(--fg-dim);">Detected during sync. Enable daily auto sync below for unattended checks. One alert per incident.</p>
+      <div class="flex gap-3">
+        <button name="action" value="save" class="px-4 py-1.5 border" style="border-color: var(--accent); color: var(--accent);">Save</button>
+        <button name="action" value="test" class="px-4 py-1.5 border" style="border-color: var(--primary); color: var(--primary);">Test message</button>
+      </div>
+      <div id="telegram-status" role="status"></div>
+    </form>
+  </div>
+
+  <div class="term-card p-6 mt-6">
     <span class="term-card__title accent">Auto Sync Schedule</span>
     <div class="mt-4 text-sm space-y-3">
       <label class="flex items-center gap-3 cursor-pointer">
@@ -62,15 +85,15 @@
           {% if daily_sync_enabled %}checked{% endif %}
           class="w-4 h-4 accent-color"
           style="accent-color: var(--accent);">
-        <span style="color: var(--fg-dim);">Sync trophies daily between 23:00–00:00 (random minute)</span>
+        <span style="color: var(--fg-dim);">Sync trophies daily between 23:00–00:00 (random minute). Missed runs resume when the server is back online.</span>
       </label>
       {% if last_auto_sync_date %}
         <div class="text-xs" style="color: var(--accent);">
-          ✓ Today's auto sync done
+          Last automatic sync attempt: {{ last_auto_sync_date }}
         </div>
       {% else %}
         <div class="text-xs" style="color: var(--fg-dim);">
-          Waiting for 23:00 — auto sync not yet run today
+          No automatic sync attempts recorded yet
         </div>
       {% endif %}
       <div class="flex gap-3 mt-4">

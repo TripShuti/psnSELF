@@ -90,3 +90,28 @@ result path. Map `playtime_seconds` to a Duration column with seconds → minute
 SELFbase server needs a network route to psnself and its own database-owner
 service token for background refresh. The API key belongs in the connection's
 private credential field, not in the base URL.
+
+### Telegram alerts
+
+On `/auth`, enter a Telegram bot token (create one with `@BotFather`) and your
+numeric chat ID. Open the bot in Telegram and press **Start** first. You can get
+your chat ID from `@userinfobot`. Optionally enter the URL of your psnSELF `/auth`
+page to include it in alerts. Use **Test message**, then **Save** with notifications
+enabled. Leaving the token field blank keeps the saved token.
+
+Enable daily auto sync to detect invalid NPSSO credentials without visiting the
+site. Authentication failures trigger one alert per incident and a site banner;
+network failures do not mark NPSSO as invalid. Failed Telegram deliveries retry
+at five-minute intervals while the application is running. A successful sync
+clears the incident. Credentials stay in the private config file; NPSSO is never
+included in Telegram messages.
+
+### Recovery after downtime
+
+Daily trophy sync runs at a random minute between 23:00 and midnight in the
+server's local timezone. The next run is persisted in `schedule.json`.
+After downtime, an overdue run starts about a minute after startup; multiple
+missed days require only one sync. A successful manual sync also satisfies an
+overdue run. Network failures retry after 5, 15, then 30 minutes (every 30
+minutes thereafter). Invalid NPSSO pauses retries until the token is replaced.
+Schedule writes are atomic, and attempts are tracked separately from success.

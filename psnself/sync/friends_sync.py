@@ -8,7 +8,7 @@ from typing import Any
 from psnawp_api import PSNAWP
 from psnawp_api.core.psnawp_exceptions import PSNAWPForbiddenError
 
-from .. import auth, db
+from .. import auth, db, notifications
 from .. import db_friends
 from ..sync import sync_lock
 from ..log import get_logger
@@ -19,7 +19,13 @@ logger = get_logger("friends_sync")
 
 def fetch_friends_leaderboard(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
     with sync_lock:
-        return _do_fetch_friends(npsso, progress_callback)
+        try:
+            result = _do_fetch_friends(npsso, progress_callback)
+        except Exception as exc:
+            notifications.record_failure(npsso, exc)
+            raise
+        notifications.record_success(npsso)
+        return result
 
 
 def _do_fetch_friends(npsso: str, progress_callback: ProgressCB = None) -> dict[str, Any]:
