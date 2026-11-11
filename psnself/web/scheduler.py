@@ -77,6 +77,7 @@ def _scheduler_tick() -> None:
         day = local_now.date() - timedelta(days=1)
         due = _evening(day)
         _save_schedule({"next_sync_at": due})
+        logger.info("Next daily trophy sync scheduled for %s", datetime.fromtimestamp(due).isoformat())
 
     if success is not None and success >= due:
         # A manual sync satisfies a missed run. Skip elapsed days.
@@ -86,6 +87,8 @@ def _scheduler_tick() -> None:
         _save_schedule({"next_sync_at": due, "retry_at": None,
                         "retry_count": 0, "blocked_token": None})
         cfg = _load_schedule()
+        logger.info("Next daily trophy sync scheduled for %s (successful sync already covered previous run)",
+                    datetime.fromtimestamp(due).isoformat())
     if now < due:
         return
     token_hash = hashlib.sha256(npsso.encode()).hexdigest()
@@ -107,11 +110,13 @@ def _scheduler_tick() -> None:
         retry_count = cfg.get("retry_count", 0) + 1
         delay = (300, 900, 1800)[min(retry_count - 1, 2)]
         blocked = auth_failed or isinstance(exc, notifications.AUTH_ERRORS)
+        retry_at = time.time() + delay
         _save_schedule({"retry_count": retry_count,
-                        "retry_at": time.time() + delay,
+                        "retry_at": retry_at,
                         "blocked_token": token_hash if blocked else None})
-        logger.exception("Daily auto sync failed; %s",
-                         "waiting for updated NPSSO" if blocked else f"retry in {delay}s")
+        logger.error("Daily auto sync failed (%s); %s", type(exc).__name__,
+                     "waiting for updated NPSSO" if blocked else
+                     f"retry scheduled for {datetime.fromtimestamp(retry_at).isoformat()}")
         return
     finished = time.time()
     finished_local = datetime.fromtimestamp(finished)
@@ -119,8 +124,10 @@ def _scheduler_tick() -> None:
     _save_schedule({"last_auto_success_at": finished,
                     "next_sync_at": _evening(next_day),
                     "retry_at": None, "retry_count": 0, "blocked_token": None})
-    logger.info("Daily auto sync done: +%d trophies, %d games",
-                result.get("trophies_added", 0), result.get("games_updated", 0))
+    next_sync = datetime.fromtimestamp(_load_schedule()["next_sync_at"])
+    logger.info("Daily auto sync done: +%d trophies, %d games; next run %s",
+                result.get("trophies_added", 0), result.get("games_updated", 0),
+                next_sync.isoformat())
 
 
 def _scheduler_loop() -> None:

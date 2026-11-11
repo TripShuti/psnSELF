@@ -66,6 +66,7 @@ def notify_pending() -> None:
             return
         state["notified"] = True
         _save_state(state)
+        logger.info("Telegram NPSSO alert delivered")
 
 
 def record_failure(npsso: str, error: Exception) -> None:
@@ -75,8 +76,11 @@ def record_failure(npsso: str, error: Exception) -> None:
         if auth.load_config().get("npsso") != npsso:
             return
         state = load_state()
+        was_invalid = state.get("invalid", False)
         state["invalid"] = True
         _save_state(state)
+        if not was_invalid:
+            logger.warning("NPSSO rejected by PlayStation; authentication needs renewal")
         notify_pending()
 
 
@@ -85,7 +89,10 @@ def record_success(npsso: str, *, trophies: bool = False) -> None:
         if auth.load_config().get("npsso") != npsso:
             return
         state = load_state()
+        was_invalid = state.get("invalid", False)
         state.update(invalid=False, notified=False, last_attempt=0)
         if trophies:
             state["last_success"] = time.time()
         _save_state(state)
+        if was_invalid:
+            logger.info("NPSSO authentication recovered")

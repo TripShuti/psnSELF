@@ -10,11 +10,13 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from psnself import auth, sync, notifications
+from psnself.log import get_logger
 from psnself.web.scheduler import _load_schedule, _save_schedule
 from psnself.web.template import templates
 from psnself.web.utils import _auth_context
 
 router = APIRouter()
+logger = get_logger("auth")
 
 
 @router.get("/auth", response_class=HTMLResponse)
@@ -64,6 +66,7 @@ async def auth_schedule(request: Request) -> HTMLResponse:
     form = await request.form()
     enabled = str(form.get("daily_sync_enabled", "0")).strip() in ("1", "true", "on")
     _save_schedule({"daily_sync_enabled": enabled})
+    logger.info("Daily trophy sync %s by user", "enabled" if enabled else "disabled")
     status = "enabled ✓ — runs daily between 23:00 and 00:00; missed runs resume automatically" if enabled else "disabled"
     return HTMLResponse(f'<span style="color: var(--accent);">✓ Auto sync {status}</span>')
 
@@ -90,9 +93,12 @@ async def telegram_settings(request: Request) -> HTMLResponse:
         try:
             await run_in_threadpool(notifications.send_telegram, settings, "psnSELF: Telegram notifications are working.")
         except RuntimeError as exc:
+            logger.warning("Telegram test message failed")
             return HTMLResponse(str(exc))
+        logger.info("Telegram test message delivered")
         return HTMLResponse("Test message sent. Click Save to store these settings.")
     cfg["telegram"] = settings
     auth.save_config(cfg)
+    logger.info("Telegram notification settings saved (enabled=%s)", enabled)
     await run_in_threadpool(notifications.notify_pending)
     return HTMLResponse("Telegram settings saved.")
